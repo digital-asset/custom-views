@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <!-- Silence initial setup logging from Logback -->
+    <statusListener class="ch.qos.logback.core.status.NopStatusListener" />
+    
+    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%date{ISO8601} %-5level %logger %marker - %msg MDC: {%mdc}%n</pattern>
+        </encoder>
+    </appender>
+    <!-- Set to TRACE for test debugging -->
+    <root level="INFO">
+        <appender-ref ref="STDOUT"/>
+    </root>
+  <logger name="org.flywaydb" level="WARN"/>
+  <logger name="io.grpc.netty" level ="WARN"/>
+  <logger name="com.github.dockerjava" level ="WARN"/>
+  <logger name="com.daml.lf.speedy" level ="WARN"/>
+  <logger name="io.netty.util" level ="WARN"/>
+  <logger name="com.daml.platform.apiserver" level="WARN"/>
+  <logger name="com.daml.grpc.adapter" level="WARN"/>
+  <logger name="com.daml.platform.store" level="WARN"/> 
+  <logger name="com.daml.platform" level="WARN"/> 
+  <logger name="org.testcontainers" level="WARN"/>
+  <logger name="com.zaxxer" level="WARN"/>
+  <logger name="com.opentable.db.postgres.embedded" level="WARN"/>
+  
+
+</configuration>

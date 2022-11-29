@@ -1,0 +1,14 @@
+sdk-version: 2.4.0-snapshot.20220905.10544.0.a2ea3ce6
+name: quickstart
+source: daml
+init-script: Main:initialize
+version: 0.0.1
+dependencies:
+  - daml-prim
+  - daml-stdlib
+  - daml-script
+codegen:
+  java:
+    package-prefix: com.daml.quickstart.model
+    output-directory: target/generated-sources/iou
+    decoderClass: com.daml.quickstart.iou.TemplateDecoder

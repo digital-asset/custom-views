@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+		http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+    <changeSet id="cs-0001" author="Digital Asset">
+        <createTable tableName="events">
+            <column name="contract_id" type="varchar">
+                <constraints nullable="false" />
+            </column>
+            <column name="event_id" type="varchar">
+                <constraints nullable="false" />
+            </column>
+            <column name="currency" type="varchar">
+                <constraints nullable="false" />
+            </column>
+            <column name="amount" type="decimal">
+                <constraints nullable="false" />
+            </column>
+        </createTable>
+    </changeSet>
+    <changeSet id="cd-002" author="Digital Asset">
+        <createTable tableName="projection">
+            <column name="id" type="text">
+                <constraints nullable="false" primaryKey="true" unique="true" primaryKeyName="id_pkey"/>
+            </column>
+            <column name="projection_table" type="text">
+                <constraints nullable="false" />
+            </column>
+            <column name="data" type="json">
+                <constraints nullable="false" />
+            </column>
+            <column name="projection_type" type="text">
+                <constraints nullable="false" />
+            </column>
+            <column name="projection_offset" type="text">
+                <constraints nullable="true" />
+            </column>
+        </createTable>
+    </changeSet>
+</databaseChangeLog>

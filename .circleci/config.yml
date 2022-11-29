@@ -1,0 +1,38 @@
+# Scala CircleCI 2.0 configuration file
+#
+# Check https://circleci.com/docs/2.0/sample-config/ for more details
+#
+version: 2.1
+
+env: &env
+  TERM: dumb
+  CI: "true"
+  USER: circleci
+  TESTCONTAINERS_HOST_OVERRIDE: "localhost"
+
+jobs:
+  build:
+    docker:
+    - image: cimg/openjdk:11.0.13
+    environment:
+      <<: *env
+    steps:
+      - setup_remote_docker:
+          version: 20.10.14
+      - checkout
+      # https://stackoverflow.com/questions/70650555/circleci-testcontainers-using-docker-executor-with-remote-docker-environment
+      - run:
+          name: Testcontainers tunnel
+          background: true
+          command: .circleci/autoforward.py
+      - run:
+          name: build
+          command: |
+            set -euo pipefail
+
+            sbt test
+workflows:
+  version: 2
+  build:
+    jobs:
+    - build
