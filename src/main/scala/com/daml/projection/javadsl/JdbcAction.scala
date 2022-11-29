@@ -4,7 +4,7 @@
 package com.daml.projection.javadsl
 import com.typesafe.scalalogging.LazyLogging
 
-import java.sql.SQLException
+import java.sql.{ PreparedStatement, SQLException }
 import java.util.Optional
 import scala.jdk.CollectionConverters._
 import scala.util.control.NoStackTrace
@@ -183,6 +183,68 @@ final case class BindValue[T](value: T, pos: Int) extends Setter {
       case x: Optional[_] if x.isEmpty  => ps.setNull(pos, java.sql.Types.NULL)
       case x: Optional[_] if !x.isEmpty => ps.setObject(pos, x.get())
       case x                            => ps.setObject(pos, x)
+    }
+  }
+}
+
+object BindValue {
+  @FunctionalInterface
+  sealed trait Setter[-T] {
+    def set(ps: java.sql.PreparedStatement, pos: Int, value: T): Unit
+    private final def apply(value: T): Setter.Applied = set(_, _, value)
+  }
+
+  object Setter {
+    private def mk[T <: AnyVal](f: (java.sql.PreparedStatement, Int, T) => Unit): Setter[T] = new Setter[T] {
+      override def set(ps: PreparedStatement, pos: Int, value: T) = f(ps, pos, value)
+    }
+
+    private def mkN[T >: Null <: AnyRef](f: (java.sql.PreparedStatement, Int, T) => Unit): Setter[T] = new Setter[T] {
+      override def set(ps: PreparedStatement, pos: Int, value: T) =
+        if (value eq null) ps.setNull(pos, java.sql.Types.NULL) else f(ps, pos, value)
+      // TODO SC would a specific thing from Types be better?
+    }
+
+    val Boolean: Setter[Boolean] = mk(_.setBoolean(_, _))
+    val Byte: Setter[Byte] = mk(_.setByte(_, _))
+    val Short: Setter[Short] = mk(_.setShort(_, _))
+    val Int: Setter[Int] = mk(_.setInt(_, _))
+    val Long: Setter[Long] = mk(_.setLong(_, _))
+    val Float: Setter[Float] = mk(_.setFloat(_, _))
+    val Double: Setter[Double] = mk(_.setDouble(_, _))
+    val `scala BigDecimal`: Setter[BigDecimal] = mkN((ps, pos, x) => ps.setBigDecimal(pos, x.bigDecimal))
+    val `java BigDecimal`: Setter[java.math.BigDecimal] = mkN(_.setBigDecimal(_, _))
+    val String: Setter[String] = mkN(_.setString(_, _))
+    val Date: Setter[java.sql.Date] = mkN(_.setDate(_, _))
+    val Timestamp: Setter[java.sql.Timestamp] = mkN(_.setTimestamp(_, _))
+    val Array: Setter[java.sql.Array] = mkN(_.setArray(_, _))
+    private val Null: Setter[Null] = mkN((ps, pos, _) => ps.setNull(pos, java.sql.Types.NULL))
+    // TODO SC is setObject right here? is Types.NULL right?
+    def Optional[A]: Setter[Optional[A]] =
+      mkN((ps, pos, x) => x.ifPresentOrElse(ps.setObject(pos, _), () => ps.setNull(pos, java.sql.Types.NULL)))
+    private val Any: Setter[AnyRef] = mkN(_.setObject(_, _))
+
+    type Applied = (java.sql.PreparedStatement, Int) => Unit
+
+    import language.existentials
+
+    private def dyn[T](x: T): (T, Setter[T]) forSome { type T } = x match {
+      case x: Boolean              => (x, Boolean)
+      case x: Byte                 => (x, Byte)
+      case x: Short                => (x, Short)
+      case x: Int                  => (x, Int)
+      case x: Long                 => (x, Long)
+      case x: Float                => (x, Float)
+      case x: Double               => (x, Double)
+      case x: BigDecimal           => (x, `scala BigDecimal`)
+      case x: java.math.BigDecimal => (x, `java BigDecimal`)
+      case x: String               => (x, String)
+      case x: java.sql.Date        => (x, Date)
+      case x: java.sql.Timestamp   => (x, Timestamp)
+      case x: java.sql.Array       => (x, Array)
+      case null                    => (null, Null)
+      case x: Optional[e]          => (x, Optional[e])
+      case x: AnyRef               => (x, Any)
     }
   }
 }
