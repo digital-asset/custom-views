@@ -4,16 +4,39 @@ Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All R
 SPDX-License-Identifier: Apache-2.0
 
 # Projection
- 
-A Java / Scala projection library for projecting Ledger events to SQL databases.
-(Currently only PostgreSQL is supported.) 
 
-A **Projection** is a resumable process that continuously reads ledger events and transforms these into rows in SQL tables. 
-A projection ensures that rows are committed according to ledger transactions, 
-ensuring that isolation and atomicity of changes perceived by database users is consistent with committed transactions on the ledger. 
+A Java / Scala projection library for projecting Ledger events to SQL databases.
+(Currently only PostgreSQL is supported.)
+
+A **Projection** is a resumable process that continuously reads ledger events and transforms these into rows in SQL tables.
+A projection ensures that rows are committed according to ledger transactions,
+ensuring that isolation and atomicity of changes perceived by database users is consistent with committed transactions on the ledger.
 
 ## Reference documentation
+
 The reference documentation is available [here](./REFERENCE.md).
+
+## Releasing
+
+This project is set up to create a snapshot on Maven for every `main` commit.
+To make a stable release, merge a commit on main with the
+
+```
+deploy: true
+tag: <version>
+```
+
+trailers, for example:
+
+```
+git commit -m "release 2.4.6
+
+deploy: true
+tag: 2.4.6
+```
+
+Note that what matters is the commit message that ends up on `main`, so be
+careful when merging a PR that intends to create a release.
 
 ## Community
 

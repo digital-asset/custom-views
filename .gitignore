@@ -33,3 +33,4 @@ metals.sbt
 
 # Mac
 .DS_Store
+.envrc.private

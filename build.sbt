@@ -2,11 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
 scalaVersion := "2.13.8"
+// Overrides sbt-dynver version
 version := sys.env.get("VERSION").getOrElse("LOCAL-SNAPSHOT")
 organization := "com.daml"
 organizationName := "Digital Asset"
 startYear := Some(2022)
 licenses += ("Apache-2.0" -> url("http://www.apache.org/licenses/LICENSE-2.0.txt"))
+homepage := Some(url("https://docs.daml.com"))
 
 headerLicense := Some(HeaderLicense.Custom(
   """|Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
@@ -17,6 +19,19 @@ headerMappings := headerMappings.value + (
   HeaderFileType.scala -> HeaderCommentStyle.cppStyleLineComment,
   HeaderFileType.java -> HeaderCommentStyle.cppStyleLineComment,
 )
+
+sonatypeCredentialHost := "s01.oss.sonatype.org"
+sonatypeRepository := "https://s01.oss.sonatype.org/service/local"
+// Note: the built-in `developers` list does not contain the same information
+// we published from the daml repo; manually setting for consistency
+pomExtra := <developers>
+    <developer>
+      <name>Digital Asset SDK Feedback</name>
+      <email>sdk-feedback@digitalasset.com</email>
+      <organization>Digital Asset (Switzerland) GmbH</organization>
+      <organizationUrl>https://www.digitalasset.com/developers</organizationUrl>
+    </developer>
+  </developers>
 
 val AkkaVersion = "2.6.20"
 val ScalaTestVersion = "3.2.12"
