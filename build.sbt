@@ -23,7 +23,7 @@ val ScalaTestVersion = "3.2.12"
 val DoobieVersion = "1.0.0-RC2"
 val circeVersion = "0.14.1"
 
-val DamlVersion = "2.5.0-snapshot.20221120.10983.0.218a6a8a"
+import Versions.DamlVersion
 
 val deps = Seq(
   "com.daml" % "bindings-java" % DamlVersion,
@@ -122,6 +122,70 @@ val scalacOpts =
       "80"
     )
 
+lazy val damlPackage = taskKey[Option[File]]("Create Daml Package (DAR).")
+damlPackage := None // by default, do nothing
+
+lazy val damlJava = taskKey[Seq[File]]("Generate Java code from a Dar.")
+damlJava := Seq() // by default, do nothing
+
+/*
+def compileDaml(
+    log: internal.util.ManagedLogger,
+    srcDir: File,
+    input: File,
+    packageName: String,
+    output: File,
+    cacheDir: File): Option[File] = {
+
+  require(srcDir.isDirectory)
+  require(input.isFile)
+  require(input.toPath.startsWith(srcDir.toPath))
+  require(input.getName.endsWith(".daml"))
+
+  val cache: Set[File] => Set[File] = FileFunction.cached(cacheDir, FilesInfo.hash) {
+    files: Set[File] =>
+      log.info("Daml changes detected, rebuilding DAR.")
+      log.info(s"Changed files:")
+      files.foreach(f => log.info(s"\t${f.getAbsolutePath: String}"))
+
+      output.getParentFile.mkdirs()
+      runDamlc(
+        Array("package", input.getAbsolutePath, packageName, "--output", output.getAbsolutePath))
+
+      val generatedFiles: Set[File] = output.getParentFile.listFiles.toSet
+      val generatedFileNames: Set[String] = generatedFiles.map(_.getAbsolutePath)
+      val expectedFileName: String = output.getAbsolutePath
+
+      if (generatedFileNames != Set(expectedFileName))
+        sys.error(s"Expected to create exactly one archive: ${expectedFileName: String}, but got: ${generatedFileNames
+          .mkString(", "): String}.\nPlease run `sbt clean`. If the issue still present, this is probably because `damlc` output changed.")
+
+      log.info(s"Created: ${expectedFileName: String}")
+      generatedFiles
+  }
+  cache((srcDir ** "*.daml").get.toSet).headOption
+}
+*/
+
+def generateJavaFrom(
+    darFile: File,
+    packageName: String,
+    outputDir: File,
+    cacheDir: File): Seq[File] = {
+
+  require(
+    darFile.getPath.endsWith(".dar") && darFile.exists(),
+    s"DAR file doest not exist: ${darFile.getPath: String}")
+
+  val cache = FileFunction.cached(cacheDir, FileInfo.hash) { _ =>
+    if (outputDir.exists) IO.delete(outputDir.listFiles)
+    // TODO SC actually generate
+    // CodeGen.generateCode(List(darFile), packageName, outputDir, Novel)
+    (outputDir ** "*.java").get.toSet
+  }
+  cache(Set(darFile)).toSeq
+}
+
 lazy val projection = (project in file("."))
   .enablePlugins(AkkaGrpcPlugin)
   .enablePlugins(AutomateHeaderPlugin)
@@ -135,6 +199,17 @@ lazy val projection = (project in file("."))
     akkaGrpcCodeGeneratorSettings := akkaGrpcCodeGeneratorSettings.value
       .filterNot(_ == "flat_package"),
     akkaGrpcCodeGeneratorSettings += "java_conversions",
+    Test / damlPackage := Some((Test / resourceDirectory).value / "dars" / "quickstart-0.0.1.dar"),
+    Test / damlJava := ((Test / damlPackage).value match {
+      case None =>
+        Seq.empty[File]
+      case Some(darFile) =>
+        generateJavaFrom(
+          darFile,
+          "com.daml.quickstart.iou",
+          (Test / sourceManaged).value,
+          streams.value.cacheDirectory / name.value)
+    }),
     inConfig(PerfTest)(Defaults.testTasks),
     Test / testOptions := Seq(Tests.Filter(unitFilter)),
     PerfTest / testOptions := Seq(Tests.Filter(perfFilter)),
