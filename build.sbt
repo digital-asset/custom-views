@@ -10,11 +10,13 @@ startYear := Some(2022)
 licenses += ("Apache-2.0" -> url("http://www.apache.org/licenses/LICENSE-2.0.txt"))
 homepage := Some(url("https://docs.daml.com"))
 
-headerLicense := Some(HeaderLicense.Custom(
-  """|Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+headerLicense := Some(
+  HeaderLicense.Custom(
+    """|Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
      |SPDX-License-Identifier: Apache-2.0
      |""".stripMargin
-))
+  )
+)
 headerMappings := headerMappings.value + (
   HeaderFileType.scala -> HeaderCommentStyle.cppStyleLineComment,
   HeaderFileType.java -> HeaderCommentStyle.cppStyleLineComment,
@@ -62,7 +64,7 @@ val deps = Seq(
   "com.opentable.components" % "otj-pg-embedded" % "1.0.1" % Test,
   "org.testcontainers" % "testcontainers" % "1.17.6" % Test,
   "com.daml" % "bindings-rxjava" % DamlVersion % Test,
-  ("com.daml" %% "sandbox-on-x" % DamlVersion % Test).exclude("org.slf4j", "slf4j-api")
+  ("com.daml" %% "sandbox-on-x" % DamlVersion % Test).exclude("org.slf4j", "slf4j-api"),
 )
 
 val scalacOpts =
@@ -134,7 +136,7 @@ val scalacOpts =
       "-Ywarn-value-discard",
       // Avoid "Exhaustivity analysis reached max recursion depth".
       "-Ypatmat-exhaust-depth",
-      "80"
+      "80",
     )
 
 lazy val projection = (project in file("."))
@@ -143,7 +145,7 @@ lazy val projection = (project in file("."))
   .configs(PerfTest)
   .settings(
     headerSources / excludeFilter := HiddenFileFilter || "TestDB.scala" || "TestEmbeddedPostgres.scala",
-    name := "projection",
+    name := "custom-views",
     Compile / scalacOptions := scalacOpts,
     akkaGrpcGeneratedSources := Seq(AkkaGrpc.Client),
     akkaGrpcGeneratedLanguages := Seq(AkkaGrpc.Scala, AkkaGrpc.Java),
@@ -156,7 +158,7 @@ lazy val projection = (project in file("."))
     libraryDependencies ++= deps,
     Test / fork := true,
     automateHeaderSettings(PerfTest),
-    inConfig(PerfTest)(JavaFormatterPlugin.toBeScopedSettings)
+    inConfig(PerfTest)(JavaFormatterPlugin.toBeScopedSettings),
   )
 lazy val PerfTest = config("perf").extend(Test)
 def perfFilter(name: String): Boolean = name.endsWith("PerfSpec")
