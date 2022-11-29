@@ -91,11 +91,11 @@ workflows:
   build:
     jobs:
     - build
-  release:
-    jobs:
     - release:
+        requires:
+        - build
         context:
         - npn-publish
-        #filters:
-        #  branches:
-        #    only: main
+        filters:
+          branches:
+            only: main

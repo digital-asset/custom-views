@@ -19,9 +19,9 @@ snapshot="$base-snapshot-$commit_date-$number_of_commits-s$commit_sha_8"
 
 VERSION=$snapshot sbt ci-release
 
-deploy=$(git log -n1 --format="%(trailers:key=deploy,valueonly)" $HEAD)
+deploy=$(git log -n1 --format="%(trailers:key=deploy,valueonly)" HEAD)
 
 if [ "$deploy" = "true" ]; then
-  tag=$(git log -n1 --format="%(trailers:key=tag,valueonly)" $HEAD)
+  tag=$(git log -n1 --format="%(trailers:key=tag,valueonly)" HEAD)
   VERSION=$tag sbt ci-release
 fi
