@@ -29,8 +29,27 @@ Start a PostgreSQL database with docker compose:
 
     docker-compose up -d db
 
+Create a new database named `ious` in the Postgres db.
 
-Connect to the PostgreSQL database and create a new database named `ious`. Create the following tables:
+    psql -h localhost -p 5432 -U postgres -c 'create database ious'
+
+Initialise ledger with some parties with the following command:
+
+     daml script --dar .daml/dist/quickstart-0.0.1.dar --script-name Main:initialize --ledger-host localhost --ledger-port 6865 --static-time
+
+This will print something like the following:
+
+    [DA.Internal.Prelude:556]: 'Alice::1220c7b4b153d8dec59ceb424bb700f2c8032ec48a13195f580c8fb099ff0ea196fc'
+
+Export the party Id, in this case `Alice::1220c7b4b153d8dec59ceb424bb700f2c8032ec48a13195f580c8fb099ff0ea196fc`:
+
+    export PARTY_ID="Alice::1220c7b4b153d8dec59ceb424bb700f2c8032ec48a13195f580c8fb099ff0ea196fc"
+
+Start the REST API with the following command:
+
+    ./mvnw spring-boot:run
+
+The spring application should start the database migration to create tables automatically:
 
     CREATE TABLE "projection"
     (
@@ -50,23 +69,6 @@ Connect to the PostgreSQL database and create a new database named `ious`. Creat
       currency TEXT NOT NULL,
       amount DECIMAL NOT NULL
     );
-
-
-Initialise ledger with some parties with the following command:
-
-     daml script --dar .daml/dist/quickstart-0.0.1.dar --script-name Main:initialize --ledger-host localhost --ledger-port 6865 --static-time --output-file parties.json
-
-This will print something like the following:
-
-    [DA.Internal.Prelude:556]: 'Alice::1220c7b4b153d8dec59ceb424bb700f2c8032ec48a13195f580c8fb099ff0ea196fc'
-
-Export the party Id, in this case `Alice::1220c7b4b153d8dec59ceb424bb700f2c8032ec48a13195f580c8fb099ff0ea196fc`:
-
-    export PARTY_ID="Alice::1220c7b4b153d8dec59ceb424bb700f2c8032ec48a13195f580c8fb099ff0ea196fc"
-
-Start the REST API with the following command:
-
-    ./mvnw spring-boot:run
 
 Start the projection runner with the following command:
 
