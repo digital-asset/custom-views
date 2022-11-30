@@ -46,6 +46,7 @@ jobs:
     - image: cimg/openjdk:11.0.13
     environment:
       TESTCONTAINERS_HOST_OVERRIDE: "localhost"
+      TESTCONTAINERS_RYUK_DISABLED: "true"
     steps:
       - setup_remote_docker:
           version: 20.10.14
