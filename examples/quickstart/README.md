@@ -7,6 +7,18 @@ application with a REST API over the projected events in the database.
 
 Note: Before starting, please ensure you have the Daml SDK installed. You can find instructions on how to do that [here](https://docs.daml.com/getting-started/installation.html#installing-the-sdk)
 
+# Prerequisite
+
+ - Maven (https://maven.apache.org/install.html)
+
+ - PostgreSql Client
+   
+   - MacOS with Homebrew (https://formulae.brew.sh/formula/libpq)
+
+   - Windows (https://www.postgresql.org/download/windows/)
+
+ - Docker (https://docs.docker.com/get-docker/)
+
 # How to run
 
 In the quickstart directory, compile Daml model with: 
