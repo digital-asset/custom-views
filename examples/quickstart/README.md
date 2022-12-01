@@ -57,34 +57,17 @@ Export the party Id, in this case `Alice::1220c7b4b153d8dec59ceb424bb700f2c8032e
 
     export PARTY_ID="Alice::1220c7b4b153d8dec59ceb424bb700f2c8032ec48a13195f580c8fb099ff0ea196fc"
 
+Run the migration to create the tables with the following command:
+
+    mvn liquibase:update
+
 Start the REST API with the following command:
 
-    ./mvnw spring-boot:run
-
-The spring application should start the database migration to create tables automatically:
-
-    CREATE TABLE "projection"
-    (
-      "id"                TEXT        NOT NULL,
-      "projection_table"  TEXT        NOT NULL,
-      "data"              JSON        NOT NULL,
-      "projection_type"   TEXT        NOT NULL,
-      "projection_offset" TEXT        NULL
-    );
-
-    ALTER TABLE "projection" ADD CONSTRAINT "projection_id" PRIMARY KEY ("id");
-
-    CREATE TABLE  "events"
-    (
-      contract_id TEXT NOT NULL,
-      event_id TEXT NOT NULL,
-      currency TEXT NOT NULL,
-      amount DECIMAL NOT NULL
-    );
+    mvn spring-boot:run
 
 Start the projection runner with the following command:
 
-    ./mvnw exec:java -Dexec.mainClass="com.daml.quickstart.iou.ProjectionRunner" -Dexec.args="$PARTY_ID"
+    mvn exec:java -Dexec.mainClass="com.daml.quickstart.iou.ProjectionRunner" -Dexec.args="$PARTY_ID"
 
 You should be able to see events projected to the database by checking the database directly or using one of the APIs below.
 - `GET /events`

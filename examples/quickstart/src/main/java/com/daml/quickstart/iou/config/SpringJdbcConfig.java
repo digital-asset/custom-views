@@ -10,9 +10,9 @@ import javax.sql.DataSource;
 @Configuration
 public class SpringJdbcConfig {
   @Bean
-  public DataSource pgDataSource(@Value("${projection.db.url}") String url,
-                                 @Value("${projection.db.username}") String user,
-                                 @Value("${projection.db.password}") String password,
+  public DataSource pgDataSource(@Value("${spring.datasource.url}") String url,
+                                 @Value("${spring.datasource.username}") String user,
+                                 @Value("${spring.datasource.password}") String password,
                                  @Value("${spring.datasource.driver-class-name}") String driver) {
     DriverManagerDataSource dataSource = new DriverManagerDataSource(url, user, password);
     dataSource.setDriverClassName(driver);
