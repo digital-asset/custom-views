@@ -283,6 +283,7 @@ control.cancel().map(_ => {
   val sourceWithNewToken = BatchSource.events(
     clientSettings.withCallCredentials(new LedgerCallCredentials(newAccessToken))
   )
-  Projection.project(sourceWithNewToken, exercisedEvents)(f)
+  val newControl = Projection.project(sourceWithNewToken, exercisedEvents)(f)
+  newControl
 })
 ```
