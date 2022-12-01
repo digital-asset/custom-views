@@ -47,7 +47,7 @@ Create a new database named `ious` in the Postgres db.
 
 Initialise ledger with some parties with the following command:
 
-     daml script --dar .daml/dist/quickstart-0.0.1.dar --script-name Main:initialize --ledger-host localhost --ledger-port 6865 --static-time
+    daml script --dar .daml/dist/quickstart-0.0.1.dar --script-name Main:initialize --ledger-host localhost --ledger-port 6865 --static-time
 
 This will print something like the following:
 
