@@ -5,4 +5,5 @@ navigator.log
 .gitattributes
 .idea
 target
-.mvn
+.mvn/wrapper/maven-wrapper.jar
+parties.json
