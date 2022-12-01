@@ -254,3 +254,35 @@ projection {
 ```
 
 You can override this dispatcher through the application.conf in your application.
+
+## Ledger API Authorization
+
+Client of ledger provides an access token when authorization is required by the Ledger.
+Detail of Ledger Authorization please refer to [Ledger Authorization documentation](https://docs.daml.com/app-dev/authorization.html)
+
+### Provide access token to custom-view library
+
+Application can provide an access token when setting up the clientSetting. 
+
+```scala
+val clientSettings = GrpcClientSettings
+  .connectToServiceAt(host, port.value)
+  .withCallCredentials(new LedgerCallCredentials(accessToken))
+val source = BatchSource.events(clientSettings)
+val control = Projection.project(source, exercisedEvents)(f)
+```
+
+### Provide a newly retrieved access token when the existing one expired
+
+When the access token is expired, application can retrieve a new access token with the stored refresh token.
+Detail of refresh access token please refer to [Ledger auth-middleware documentation](https://docs.daml.com/tools/auth-middleware/index.html#refresh-access-token)
+Application can cancel the running projection and re-create a new one with the new access token.
+
+```scala
+control.cancel().map(_ => {
+  val sourceWithNewToken = BatchSource.events(
+    clientSettings.withCallCredentials(new LedgerCallCredentials(newAccessToken))
+  )
+  Projection.project(sourceWithNewToken, exercisedEvents)(f)
+})
+```
