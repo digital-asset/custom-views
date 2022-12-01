@@ -3,6 +3,7 @@
 
 package com.daml.projection.scaladsl
 
+import akka.actor.ActorSystem
 import akka.stream.scaladsl.Flow
 import cats.effect._
 import cats.implicits._
@@ -27,15 +28,17 @@ object Doobie {
       )
       with scala.util.control.NoStackTrace
 
-  object InitProjection {
-    def apply(projection: Projection[_]): Action = {
+  object InitProjection extends StrictLogging {
+    def apply(projection: Projection[_])(implicit sys: ActorSystem): Action = {
       for {
-        u <- insertIfMissing(projection)
+        _ <- doobie.free.connection.raw(Migration.migrateIfConfigured)
+        u <- insertIfMissing(Migration.projectionTableName, projection)
         _ <- doobie.free.connection.commit
       } yield u
     }
 
     private def createSql(
+        projectionTableName: String,
         projectionId: ProjectionId,
         table: ProjectionTable,
         transactionFilter: TransactionFilter,
@@ -46,7 +49,7 @@ object Doobie {
       val data = transactionFilter.asJson
 
       sql"""
-      | insert into projection(
+      | insert into ${Fragment.const(projectionTableName)}(
       |   id,
       |   projection_table,
       |   data,
@@ -63,27 +66,31 @@ object Doobie {
       """.stripMargin
     }
 
-    private def insertIfMissing(projection: Projection[_]): Action = {
+    private def insertIfMissing(projectionTableName: String, projection: Projection[_]): Action = {
+      import doobie.postgres.sqlstate.class23.UNIQUE_VIOLATION
       createSql(
+        projectionTableName,
         projection.id,
         projection.table,
         projection.transactionFilter,
         projection.getClass.getName
-      ).update.run.exceptSqlState { case _ => doobie.free.connection.pure(0) }
+      ).update.run.exceptSomeSqlState { case UNIQUE_VIOLATION =>
+        doobie.free.connection.pure(0)
+      }
     }
   }
 
   object AdvanceProjection {
-    def apply(projectionId: ProjectionId, offset: Offset): Action = {
+    def apply(projectionId: ProjectionId, offset: Offset)(implicit sys: ActorSystem): Action = {
       for {
-        u <- update(projectionId, offset)
+        u <- update(Migration.projectionTableName, projectionId, offset)
         _ <- if (u <= 0) doobie.free.connection.raiseError(AdvanceProjectionFailed(projectionId, offset))
         else doobie.free.connection.commit
       } yield u
     }
-    def update(projectionId: ProjectionId, offset: Offset): Action = {
+    def update(projectionTableName: String, projectionId: ProjectionId, offset: Offset): Action = {
       sql"""
-      | update projection
+      | update ${Fragment.const(projectionTableName)}
       |    set projection_offset = ${offset}
       |  where id = ${projectionId}
       """.stripMargin.update.run
@@ -112,23 +119,30 @@ object Doobie {
   }
 
   object Projector {
-    def apply()(implicit xa: Transactor[IO], runtime: IORuntime): Projector[Action] =
+    def apply()(implicit xa: Transactor[IO], runtime: IORuntime, sys: ActorSystem): Projector[Action] = {
       new DoobieProjector(xa)
+    }
+
     /*
      * TODO(daml/15691) improve connection usage in Doobie tests https://github.com/digital-asset/daml/issues/15691
      */
-    private final class DoobieProjector(xa: Transactor[IO])(implicit runtime: IORuntime)
+    private final class DoobieProjector(xa: Transactor[IO])(implicit runtime: IORuntime, sys: ActorSystem)
         extends Projector[Action]
         with StrictLogging {
       val init: Projection.Init[Action] = Doobie.InitProjection(_)
       val advance: Projection.Advance[Action] = Doobie.AdvanceProjection(_, _)
 
-      def getOffset(projection: Projection[_]): Option[Offset] =
-        sql"""
-        | select projection_offset
-        |   from projection
-        |  where id = ${projection.id}
-        """.stripMargin.query[Offset].option.transact(xa).unsafeRunSync()
+      def getOffset(projection: Projection[_]): Option[Offset] = {
+        (for {
+          _ <- doobie.free.connection.raw(Migration.migrateIfConfigured)
+          offset <- sql"""
+                         | select projection_offset
+                         |   from ${Fragment.const(Migration.projectionTableName)}
+                         |  where id = ${projection.id}
+        """.stripMargin.query[Offset].option
+        } yield offset)
+          .transact(xa).unsafeRunSync()
+      }
 
       def flow: Flow[Action, Int, ProjectorResource] = {
         import akka.Done

@@ -1,5 +1,5 @@
 -- PROJECTION
-CREATE TABLE "projection"
+CREATE TABLE ${projection_table_name}
 (
   "id"                TEXT        NOT NULL,
   "projection_table"  TEXT        NOT NULL,
@@ -8,5 +8,5 @@ CREATE TABLE "projection"
   "projection_offset" TEXT        NULL
 );
 
-ALTER TABLE "projection"
+ALTER TABLE ${projection_table_name}
   ADD CONSTRAINT "projection_id" PRIMARY KEY ("id");

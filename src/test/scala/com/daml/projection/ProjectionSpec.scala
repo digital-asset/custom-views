@@ -97,6 +97,7 @@ class ProjectionSpec
 
       Then("the projection has advanced to the tx offset associated to the first event")
       projector.getOffset(projection) must be(Some(Offset(created.completionOffset)))
+
       res.resourcesClosed.map(_ mustBe Done)
     }
 

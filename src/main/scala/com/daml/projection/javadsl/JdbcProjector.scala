@@ -8,7 +8,7 @@ import akka.actor.ActorSystem
 import akka.stream.scaladsl.{ Flow, Sink }
 import com.daml.ledger.api.v1.event.Event
 import com.daml.ledger.api.v1.{ event => SE }
-import com.daml.projection.{ scaladsl, Batch, Envelope, Offset, Projection, ProjectionId }
+import com.daml.projection.{ scaladsl, Batch, Envelope, Migration, Offset, Projection, ProjectionId }
 import com.daml.ledger.javaapi.{ data => J }
 import com.daml.projection.Projection.Advance
 import com.daml.projection.scaladsl.{ Projector => SProjector, ProjectorResource }
@@ -117,12 +117,12 @@ object JdbcProjector {
       extends Projector[JdbcAction] with StrictLogging {
     val advance: Advance[JdbcAction] = AdvanceProjection(_, _)
     val init: Projection.Init[JdbcAction] = InitProjection(_)
-
+    val projectionTableName = Migration.projectionTableName(system)
     private object AdvanceProjection {
       def apply(projectionId: ProjectionId, offset: Offset): JdbcAction = {
         val sql =
-          """
-            | update projection
+          s"""
+            | update $projectionTableName
             |    set projection_offset = :offset
             |  where id = :id
           """.stripMargin
@@ -134,8 +134,8 @@ object JdbcProjector {
     private object InitProjection {
       def apply(projection: Projection[_]): JdbcAction = {
         val sql =
-          """
-          | insert into projection(
+          s"""
+          | insert into $projectionTableName(
           |   id,
           |   projection_table,
           |   data,
@@ -150,7 +150,8 @@ object JdbcProjector {
           |   NULL
           | )
           """.stripMargin
-        HandleError(
+
+        val insertIfNotExists = HandleError(
           ExecuteUpdate
             .create(sql)
             .bind(1, projection.id.value)
@@ -160,6 +161,12 @@ object JdbcProjector {
           // rollback automatically starts a new tx
           _ => Rollback
         )
+        new JdbcAction() {
+          def execute(con: java.sql.Connection): Int = {
+            Migration.migrateIfConfigured(con)
+            insertIfNotExists.execute(con)
+          }
+        }
       }
     }
 
@@ -173,11 +180,12 @@ object JdbcProjector {
     override def getOffset(projection: Projection[_]) = {
       val sql = s"""
         | select projection_offset
-        |   from projection
+        |   from $projectionTableName
         |  where id = ?
         """.stripMargin
       val connection = createCon()
       try {
+        Migration.migrateIfConfigured(connection)
         val ps = connection.prepareStatement(sql)
         ps.setString(1, projection.id.value)
         try {

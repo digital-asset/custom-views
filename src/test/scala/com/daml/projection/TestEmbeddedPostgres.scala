@@ -65,7 +65,6 @@ trait TestEmbeddedPostgres extends BeforeAndAfterEach with BeforeAndAfterAll wit
 
   override protected def beforeEach(): Unit = {
     super.beforeEach()
-    currentDb.migrate()
   }
 
   override protected def afterEach(): Unit = {

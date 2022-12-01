@@ -40,15 +40,8 @@ class TestDB(config: DBConfig) extends StrictLogging {
     Flyway
       .configure()
       .dataSource(config.url, config.username, config.password.value)
-      .locations("db/migration/projection", "testdb/migration")
+      .locations("db.migration.projection", "testdb/migration")
       .load()
-  }
-
-  def migrate(): Unit = {
-    if (config.migrateOnStart) {
-      flyway.migrate()
-      ()
-    }
   }
 
   def clean(): Unit = {
