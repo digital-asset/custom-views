@@ -27,7 +27,7 @@ In the quickstart directory, compile Daml model with:
 
 Startup a sandbox ledger in a separate terminal with: 
 
-    daml sandbox --dar .daml/dist/quickstart-0.0.1.dar`
+    daml sandbox --dar .daml/dist/quickstart-0.0.1.dar
 
 Generate java code from the daml source with: 
 
