@@ -262,7 +262,7 @@ Detail of Ledger Authorization please refer to [Ledger Authorization documentati
 
 ### Provide access token to custom-view library
 
-Application can provide an access token when setting up the clientSetting. 
+Applications can provide an access token when setting up the client. 
 
 ```scala
 val clientSettings = GrpcClientSettings
