@@ -274,7 +274,7 @@ val control = Projection.project(source, exercisedEvents)(f)
 
 ### Provide a newly retrieved access token when the existing one expired
 
-When the access token is expired, application can retrieve a new access token with the stored refresh token.
+When an access token is expired, an application can retrieve a new access token with the stored refresh token.
 For details on the refresh token, please refer to [Ledger auth-middleware documentation](https://docs.daml.com/tools/auth-middleware/index.html#refresh-access-token).
 Application can cancel the running projection and re-create a new one with the new access token.
 
