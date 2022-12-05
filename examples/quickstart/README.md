@@ -59,7 +59,7 @@ Export the party Id, in this case `Alice::1220c7b4b153d8dec59ceb424bb700f2c8032e
 
 Run the migration to create the tables with the following command:
 
-    mvn liquibase:update
+    mvn flyway:migrate -Dflyway.configFiles=src/main/resources/flyway.conf
 
 Start the REST API with the following command:
 
