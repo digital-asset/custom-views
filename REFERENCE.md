@@ -257,7 +257,7 @@ You can override this dispatcher through the application.conf in your applicatio
 
 ## Ledger API Authorization
 
-Client of ledger provides an access token when authorization is required by the Ledger.
+The client must provide an access token when authorization is required by the Ledger.
 Detail of Ledger Authorization please refer to [Ledger Authorization documentation](https://docs.daml.com/app-dev/authorization.html)
 
 ### Provide access token to custom-view library
