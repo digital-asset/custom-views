@@ -56,10 +56,10 @@ private object Migration extends StrictLogging {
         Try {
           val result = flyway.migrate()
           logger.trace(s"Flyway migration success: ${result.schemaName}")
+          con.commit()
         }.recover(e => logger.error(s"Flyway migration failed.", e))
         ()
       }
-      con.commit()
     }
     0
   }
