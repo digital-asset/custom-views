@@ -1,8 +1,0 @@
-/.daml
-/log
-navigator.log
-/.dlint.yaml
-.gitattributes
-.idea
-target
-.mvn
