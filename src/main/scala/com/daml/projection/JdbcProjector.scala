@@ -52,7 +52,7 @@ trait BatchRows[R, A] extends java.io.Serializable {
 }
 
 /**
- * Creates a [[Projector]] that executes [[JdbcAction]]s.
+ * Creates a [[javadsl.Projector]] or [[scaladsl.Projector]] that executes [[JdbcAction]]s.
  */
 object JdbcProjector {
 
