@@ -31,12 +31,12 @@ public class JavaApiExample {
     var partyId = "alice";
 
     try {
-      HikariConfig config = new HikariConfig();
+      var config = new HikariConfig();
       config.setJdbcUrl(url);
       config.setUsername(user);
       config.setPassword(password);
 
-      HikariDataSource ds = new HikariDataSource(config);
+      var ds = new HikariDataSource(config);
       var system = ActorSystem.create("my-projection-app");
       var projector = JdbcProjector.create(ds, system);
 

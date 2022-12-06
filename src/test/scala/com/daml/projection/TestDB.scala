@@ -23,16 +23,14 @@ class TestDB(config: DBConfig) extends StrictLogging {
   val props = new java.util.Properties()
   props.setProperty("user", config.username)
   props.setProperty("password", config.password.value)
-  // TODO
-  val poolSize = 200
+
   val connections = new AtomicReference(Vector.empty[java.sql.Connection])
   val hikariConfig = new HikariConfig()
   hikariConfig.setJdbcUrl(config.url)
   hikariConfig.setUsername(config.username)
   hikariConfig.setAutoCommit(false)
   hikariConfig.setPassword(config.password.value)
-  hikariConfig.setMaximumPoolSize(poolSize)
-  // TODO close ds
+
   val ds = new HikariDataSource(hikariConfig)
   def getConnection() = {
     val con = ds.getConnection()
@@ -83,5 +81,6 @@ class TestDB(config: DBConfig) extends StrictLogging {
         Try(c.close()).recover(t => logger.trace("Could not close connection.", t))
       }
     }
+    ds.close()
   }
 }
