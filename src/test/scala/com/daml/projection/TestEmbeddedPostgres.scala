@@ -49,8 +49,10 @@ trait TestEmbeddedPostgres extends BeforeAndAfterEach with BeforeAndAfterAll wit
   import cats.effect.IO
 
   implicit def xa(implicit ec: ExecutionContext): Transactor.Aux[IO, _ <: DataSource] = currentDb.xa
+
   def getEmbeddedPostgres() = postgres
   def ds = currentDb.ds
+
   override protected def beforeAll(): Unit = {
     super.beforeAll()
     postgres = EmbeddedPostgres.builder()

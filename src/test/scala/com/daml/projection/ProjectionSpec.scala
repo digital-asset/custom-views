@@ -8,7 +8,6 @@ import akka.actor.ActorSystem
 import akka.stream.scaladsl.{ Flow, Keep, Source }
 import akka.stream.testkit.scaladsl.TestSink
 import akka.testkit.TestKit
-import cats.effect.unsafe.implicits.global
 import com.daml.ledger.api.v1.event._
 import com.daml.ledger.javaapi.data.{ CreatedEvent => JCreatedEvent }
 import com.daml.quickstart.iou.iou._
@@ -20,7 +19,7 @@ import org.scalatest.matchers.must._
 import org.scalatest.time._
 import org.scalatest.wordspec._
 import com.daml.ledger.api.v1.event.Event.Event.{ Archived, Created }
-import com.daml.projection.scaladsl.{ Consumer, Control, Doobie }
+import com.daml.projection.scaladsl.{ Consumer, Control }
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
@@ -47,11 +46,11 @@ class ProjectionSpec
   }
 
   implicit val logHandler = LogHandler.nop
-  type Action = Doobie.Action
+  type Action = JdbcAction
 
   "A Projection" must {
     "project created events up to endOffset and complete the stream" in {
-      implicit val projector = Doobie.Projector()
+      implicit val projector = JdbcProjector(ds)
 
       val alice = uniqueParty("Alice")
 
@@ -102,7 +101,7 @@ class ProjectionSpec
     }
 
     "project created events continuously" in {
-      implicit val projector = Doobie.Projector()
+      implicit val projector = JdbcProjector(ds)
 
       val party = uniqueParty("Bob")
       val projection = eventsProjection(party)
@@ -155,7 +154,8 @@ class ProjectionSpec
     }
 
     "project exercised events" in {
-      implicit val projector = Doobie.Projector()
+      implicit val projector = JdbcProjector(ds)
+
       val alice = uniqueParty("Alice")
       val bob = uniqueParty("Bob")
 
@@ -163,7 +163,8 @@ class ProjectionSpec
       val response = createAndExerciseIouTransfer(alice, alice, 100d, bob).futureValue
 
       Given("an ExercisedEvents projection")
-      val projection = mkChoice(alice).withPredicate(choicePredicate(alice))
+      val projection =
+        mkChoice(alice).withPredicate(choicePredicate(alice)).withEndOffset(Offset(response.completionOffset))
       projector.getOffset(projection) must be(None)
 
       When("projecting exercised events")
@@ -176,17 +177,19 @@ class ProjectionSpec
         import envelope._
         val actingParties = event.actingParties.mkString(",")
         val witnessParties = event.witnessParties.mkString(",")
-        List(fr"""insert into ${Fragment.const(table.name)}
+        List(ExecuteUpdate(s"""insert into ${table.name}
           (contract_id, event_id, acting_parties, witness_parties, event_offset)
-          values (${event.contractId}, $actingParties, $witnessParties, ${event.eventId}, ${offset})""".update.run)
+          values (:cid, :ap, :wp, :eid, :o)""")
+          .bind("cid", event.contractId)
+          .bind("ap", actingParties)
+          .bind("wp", witnessParties)
+          .bind("eid", event.eventId)
+          .bind("o", offset.map(_.value)))
       }
 
       val projectionResults = source
         .via(Projection.Flows.project(projection, toAction))
         .via(projector.flow)
-
-      When("another exercised choice")
-      createAndExerciseIouTransfer(alice, alice, 110d, bob).futureValue
 
       Then("the expected events should be projected")
       val (res, probe) = projectionResults.toMat(TestSink.probe)(Keep.both).run()
@@ -197,13 +200,8 @@ class ProjectionSpec
       probe.request(1).expectNext() must be(1)
       // update projection
       probe.request(1).expectNext() must be(1)
-      // next exercise
-      probe.request(1).expectNext() must be(1)
-      // next projection update is not available yet
-      probe.request(1).expectNoMessage()
-
-      When("The test forces a rollback of transaction in progress")
-      runIO(doobie.free.connection.rollback)
+      // completed
+      probe.request(1).expectComplete()
 
       Then("the projection should have advanced to the offset associated to the event")
       projector.getOffset(projection) must be(Some(Offset(response.completionOffset)))
@@ -211,12 +209,12 @@ class ProjectionSpec
       val contractId =
         runIO(sql"select contract_id from exercised_events".query[String].to[List])
       Then("the projected table should contain the events")
-      contractId.size must be(2)
+      contractId.size must be(1)
       res.cancel().map(_ mustBe Done)
     }
 
     "continue from the projection after projecting events" in {
-      implicit val projector = Doobie.Projector()
+      implicit val projector = JdbcProjector(ds)
       val alice = uniqueParty("Alice")
       val projection = eventsProjection(alice)
       projector.getOffset(projection) must be(None)
@@ -313,7 +311,7 @@ class ProjectionSpec
     }
 
     "continue from the projection after projecting exercised events" in {
-      implicit val projector = Doobie.Projector()
+      implicit val projector = JdbcProjector(ds)
       val alice = uniqueParty("Alice")
       val bob = uniqueParty("Bob")
 
@@ -338,9 +336,14 @@ class ProjectionSpec
         import envelope._
         val actingParties = event.actingParties.mkString(",")
         val witnessParties = event.witnessParties.mkString(",")
-        List(fr"""insert into ${Fragment.const(table.name)}
+        List(ExecuteUpdate(s"""insert into ${table.name}
           (contract_id, event_id, acting_parties, witness_parties, event_offset)
-          values (${event.contractId}, $actingParties, $witnessParties, ${event.eventId}, ${offset})""".update.run)
+          values (:cid, :ap, :wp, :eid, :o)""")
+          .bind("cid", event.contractId)
+          .bind("ap", actingParties)
+          .bind("wp", witnessParties)
+          .bind("eid", event.eventId)
+          .bind("o", offset.map(_.value)))
       }
       val projectionResults = source
         .via(Projection.Flows.project(projection, toAction))
@@ -412,8 +415,8 @@ class ProjectionSpec
     }
 
     "project Iou.Contract with a BatchSource up to endOffset and complete the stream" in {
+      implicit val projector = JdbcProjector(ds)
       import IouContract._
-      implicit val projector = Doobie.Projector()
 
       val alice = uniqueParty("Alice")
       val projection = iouProjection(alice)
@@ -434,9 +437,13 @@ class ProjectionSpec
         import envelope._
         val c = event
         val witnessParties = c.event.witnessParties.mkString(",")
-
-        List(fr"""insert into ${Fragment.const(table.name)} (contract_id, event_id, witness_parties, amount, currency)
-      values (${c.iou.id.contractId}, ${c.event.eventId}, ${witnessParties}, ${c.iou.data.amount}, ${c.iou.data.currency})""".update.run)
+        List(ExecuteUpdate(s"""insert into ${table.name} (contract_id, event_id, witness_parties, amount, currency)
+      values (:cid, :eid, :wp, :a, :c)""")
+          .bind("cid", c.iou.id.contractId)
+          .bind("eid", c.event.eventId)
+          .bind("wp", witnessParties)
+          .bind("a", c.iou.data.amount)
+          .bind("c", c.iou.data.currency))
       }
 
       val projectionResults = source
@@ -493,8 +500,13 @@ class ProjectionSpec
     val witnessParties = event.witnessParties.mkString(",")
     val iou = toIou(event)
 
-    List(fr"""insert into ${Fragment.const(table.name)} (contract_id, event_id, witness_parties, amount, currency)
-      values (${event.contractId}, ${event.eventId}, $witnessParties, ${iou.data.amount}, ${iou.data.currency})""".update.run)
+    List(ExecuteUpdate(s"""insert into ${table.name} (contract_id, event_id, witness_parties, amount, currency)
+      values (?, ?, ?, ?, ?)""")
+      .bind(1, event.contractId)
+      .bind(2, event.eventId)
+      .bind(3, witnessParties)
+      .bind(4, iou.data.amount)
+      .bind(5, iou.data.currency))
   }
 
   val CollectCreatedEvents = Flow[Batch[Event]].map {

@@ -6,22 +6,24 @@ package com.daml.projectiontest
 import akka.Done
 import akka.actor.ActorSystem
 import akka.testkit.TestKit
-import cats.effect.unsafe.implicits.global
 import com.daml.ledger.api.v1.event.Event.Event.Created
 import com.daml.ledger.api.v1.event._
 import com.daml.projection.{
+  ExecuteUpdate,
   IouContract,
+  JdbcAction,
+  JdbcProjector,
   Projection,
   ProjectionFilter,
   ProjectionId,
   ProjectionTable,
   SandboxHelper,
-  TestEmbeddedPostgres
+  Sql,
+  TestEmbeddedPostgres,
+  UpdateMany
 }
-import com.daml.projection.scaladsl.{ BatchSource, Doobie }
+import com.daml.projection.scaladsl.BatchSource
 import com.daml.quickstart.iou.iou._
-import doobie._
-import doobie.implicits._
 import org.scalatest._
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.matchers.must._
@@ -49,31 +51,36 @@ class FacadeSpec
     TestKit.shutdownActorSystem(system)
   }
 
-  implicit val logHandler = LogHandler.nop
   val partyId = "alice"
   val projectionTable = ProjectionTable("ious")
 
   "A Projection" must {
     "provide an easy way to project events" in {
-      import Doobie._
       import Projection._
-      implicit val projector = Projector()
+      implicit val projector = JdbcProjector(ds)
       val projectionId = ProjectionId("my-id")
       val events = Projection[Event](projectionId, ProjectionFilter.parties(Set(partyId)), projectionTable)
 
-      val insert: Project[CreatedEvent, Action] = { envelope =>
+      val insert: Project[CreatedEvent, JdbcAction] = { envelope =>
         import envelope._
         val witnessParties = event.witnessParties.mkString(",")
         val iou = IouContract.toIou(event)
 
-        List(fr"""insert into ${table.const}
+        List(ExecuteUpdate(s"""insert into ${table.name}
           (contract_id, event_id, witness_parties, amount, currency)
-          values (${event.contractId}, ${event.eventId}, $witnessParties, ${iou.data.amount}, ${iou.data.currency})""".update.run)
+          values (?, ?, ?, ?, ?)""")
+          .bind(1, event.contractId)
+          .bind(2, event.eventId)
+          .bind(3, witnessParties)
+          .bind(4, iou.data.amount)
+          .bind(5, iou.data.currency))
       }
 
-      val delete: Project[ArchivedEvent, Action] = { envelope =>
+      val delete: Project[ArchivedEvent, JdbcAction] = { envelope =>
         import envelope._
-        List(fr"delete from ${table.const} where contract_id = ${event.contractId}".update.run)
+        List(ExecuteUpdate(s"delete from ${table.name} where contract_id = :contract_id ").bind(
+          "contract_id",
+          event.contractId))
       }
       val f = Projection.fromCreateOrArchive(insert, delete)
       implicit val source = BatchSource.events(clientSettings)
@@ -82,9 +89,8 @@ class FacadeSpec
     }
 
     "provide an easy way to project exercised events" in {
-      import Doobie._
+      implicit val projector = JdbcProjector(ds)
 
-      implicit val projector = Doobie.Projector()
       val projectionId = ProjectionId("my-id")
       val exercisedEvents =
         Projection[ExercisedEvent](projectionId, ProjectionFilter.parties(Set(partyId)), ProjectionTable("contracts"))
@@ -95,32 +101,55 @@ class FacadeSpec
           import envelope._
           val actingParties = event.actingParties.mkString(",")
           val witnessParties = event.witnessParties.mkString(",")
-          List(fr"""
-          insert into ${table.const}
+          List[JdbcAction](ExecuteUpdate(s"""
+          insert into ${table.name}
           (contract_id, event_id, acting_parties, witness_parties, event_offset)
-          values (${event.contractId}, $actingParties, $witnessParties, ${event.eventId}, ${offset})
-          """.update.run)
+          values ()
+          """)
+            .bind("contract_id", event.contractId)
+            .bind("event_id", event.eventId)
+            .bind("acting_parties", actingParties)
+            .bind("witness_parties", witnessParties)
+            .bind("event_offset", offset))
       }
       ctrl.cancel().map(_ mustBe Done)
     }
 
     "provide an easy way to project using a batch operation" in {
-      implicit val projector = Doobie.Projector()
+      implicit val projector = JdbcProjector(ds)
+
       val projectionId = ProjectionId("my-id")
       val events = Projection[Event](projectionId, ProjectionFilter.parties(Set(partyId)), projectionTable)
       case class CreatedRow(contractId: String, eventId: String, amount: BigDecimal, currency: String)
-      val sql =
-        s"""insert into ${events.table.name}(contract_id, event_id,  amount, currency) " +
-        s"values (?, ?, ?, ?)"""
 
       val source = BatchSource.events(clientSettings)
+      val updateMany = UpdateMany(
+        Sql
+          .binder[CreatedRow](s"""
+          |insert into ${events.table.name} 
+          |(
+          |  contract_id, 
+          |  event_id, 
+          |  amount, 
+          |  currency
+          |) 
+          |values (
+          |  :contract_id, 
+          |  :event_id, 
+          |  :amount, 
+          |  :currency
+          |)""".stripMargin)
+          .bind("contract_id", _.contractId)
+          .bind("event_id", _.eventId)
+          .bind("amount", _.amount)
+          .bind("currency", _.currency)
+      )
 
       val ctrl = Projection.projectRows(
         source,
         events,
-        Doobie.UpdateMany[CreatedRow](sql)) { envelope =>
+        updateMany) { envelope =>
         import envelope._
-
         event match {
           case Event(Created(ce)) =>
             val iou = IouContract.toIou(ce)
@@ -132,20 +161,39 @@ class FacadeSpec
     }
 
     "An experiment with Projection[CodegenType]" in {
-      implicit val projector = Doobie.Projector()
+      implicit val projector = JdbcProjector(ds)
+
       import IouContract._
       val projectionId = ProjectionId("my-id")
       val events =
         Projection[Iou.Contract](projectionId, ProjectionFilter.parties(Set(partyId)), projectionTable)
       case class CreatedRow(contractId: String, amount: BigDecimal, currency: String)
-      val sql =
-        s"""insert into ${events.table.name}(contract_id, event_id,  amount, currency) " +
-        s"values (?, ?, ?, ?)"""
+      val updateMany = UpdateMany(
+        Sql
+          .binder[CreatedRow](s"""
+          |insert into ${events.table.name} 
+          |(
+          |  contract_id, 
+          |  event_id, 
+          |  amount, 
+          |  currency
+          |) 
+          |values (
+          |  :contract_id, 
+          |  :event_id, 
+          |  :amount, 
+          |  :currency
+          |)""".stripMargin)
+          .bind("contract_id", _.contractId)
+          .bind("event_id", _ => "")
+          .bind("amount", _.amount)
+          .bind("currency", _.currency)
+      )
 
       val ctrl = Projection.projectRows(
         iouBatchSource(clientSettings),
         events,
-        Doobie.UpdateMany[CreatedRow](sql)) { envelope =>
+        updateMany) { envelope =>
         val iou = envelope.unwrap
         List(CreatedRow(iou.id.contractId, iou.data.amount, iou.data.currency))
       }

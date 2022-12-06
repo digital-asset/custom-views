@@ -1,25 +1,22 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.projection.javadsl
+package com.daml.projection
 
 import akka.Done
 import akka.actor.ActorSystem
 import akka.stream.scaladsl.{ Flow, Sink }
 import com.daml.ledger.api.v1.event.Event
 import com.daml.ledger.api.v1.{ event => SE }
-import com.daml.projection.{ scaladsl, Batch, Envelope, Migration, Offset, Projection, ProjectionId }
 import com.daml.ledger.javaapi.{ data => J }
 import com.daml.projection.Projection.Advance
 import com.daml.projection.scaladsl.{ Projector => SProjector, ProjectorResource }
 import com.typesafe.scalalogging.StrictLogging
 
 import java.sql.SQLException
-import java.util.Optional
 import javax.sql.DataSource
 import scala.concurrent.Promise
 import scala.jdk.CollectionConverters._
-import scala.jdk.OptionConverters._
 import scala.util.Try
 
 /**
@@ -55,67 +52,29 @@ trait BatchRows[R, A] extends java.io.Serializable {
 }
 
 /**
- * Projects ledger events into a destination by executing actions.
- * @tparam A
- *   the type of action
- */
-trait Projector[A] extends scaladsl.Projector[A] {
-
-  /**
-   * Projects the projection using a function that creates actions from every event read from the Ledger. Events of type
-   * `E` are read from a [[BatchSource]]. See [[BatchSource.events]], [[BatchSource.exercisedEvents]] and
-   * [[BatchSource.treeEvents]] for default [[BatchSource]]s.
-   */
-  def project[E](
-      batchSource: BatchSource[E],
-      p: Projection[E],
-      f: Project[E, A]): Control
-
-  /**
-   * Projects the `Event` projection, using a `fc` function that creates actions from `CreatedEvent`s and a `fa`
-   * function that creates actions from `ArchivedEvent`s.
-   */
-  def projectEvents(
-      batchSource: BatchSource[J.Event],
-      p: Projection[J.Event],
-      fc: Project[J.CreatedEvent, A],
-      fa: Project[J.ArchivedEvent, A]): Control
-
-  /**
-   * Projects the projection, using a function that creates `R` rows from every event read from the ledger, using a
-   * [[BatchRows]] function that batches the list of rows into one action. Events of type `E` are read from a
-   * [[BatchSource]].
-   */
-  def projectRows[E, R](
-      batchSource: BatchSource[E],
-      p: Projection[E],
-      batchRows: BatchRows[R, A],
-      mkRow: Project[E, R]): Control
-
-  /**
-   * Gets the current stored offset for the projection provided.
-   */
-  def getCurrentOffset(projection: Projection[_]): Optional[Offset] = getOffset(projection).toJava
-}
-
-/**
  * Creates a [[Projector]] that executes [[JdbcAction]]s.
  */
 object JdbcProjector {
+
+  def apply(
+      ds: DataSource
+  )(implicit system: ActorSystem): scaladsl.Projector[JdbcAction] = {
+    new JdbcProjectorImpl(ds, system)
+  }
 
   /**
    * Creates a JdbcProjector.
    */
   def create(
       ds: DataSource,
-      system: ActorSystem): Projector[JdbcAction] = {
+      system: ActorSystem): javadsl.Projector[JdbcAction] = {
     new JdbcProjectorImpl(ds, system)
   }
 
   private final class JdbcProjectorImpl(
       ds: DataSource,
       system: ActorSystem)
-      extends Projector[JdbcAction] with StrictLogging {
+      extends javadsl.Projector[JdbcAction] with StrictLogging {
     val advance: Advance[JdbcAction] = AdvanceProjection(_, _)
     val init: Projection.Init[JdbcAction] = InitProjection(_)
     val projectionTableName = Migration.projectionTableName(system)
@@ -206,24 +165,24 @@ object JdbcProjector {
     }
 
     override def project[E](
-        batchSource: BatchSource[E],
+        batchSource: javadsl.BatchSource[E],
         p: Projection[E],
-        f: Project[E, JdbcAction]): Control = {
+        f: Project[E, JdbcAction]): javadsl.Control = {
 
       val control = Projection.project(batchSource.toScala, p)(e => f(e).asScala)
-      new GrpcControl(control)
+      new javadsl.GrpcControl(control)
     }
 
     override def projectEvents(
-        batchSource: BatchSource[J.Event],
+        batchSource: javadsl.BatchSource[J.Event],
         p: Projection[J.Event],
         fc: Project[J.CreatedEvent, JdbcAction],
         fa: Project[J.ArchivedEvent, JdbcAction]
-    ): Control = {
+    ): javadsl.Control = {
 
-      val sBatchSource = new BatchSource[SE.Event]() {
+      val sBatchSource = new javadsl.BatchSource[SE.Event]() {
         override def src(projection: Projection[Event])(implicit
-            sys: ActorSystem): akka.stream.javadsl.Source[Batch[Event], Control] = {
+            sys: ActorSystem): akka.stream.javadsl.Source[Batch[Event], javadsl.Control] = {
           batchSource.src(projection.convert(e => Some(SE.Event.fromJavaProto(e.toProtoEvent))))
         }.map(b => b.map(e => SE.Event.fromJavaProto(e.toProtoEvent)))
       }.toScala
@@ -234,21 +193,21 @@ object JdbcProjector {
         c => fc(c.map(ce => J.CreatedEvent.fromProto(SE.CreatedEvent.toJavaProto(ce)))).asScala,
         a => fa(a.map(ae => J.ArchivedEvent.fromProto(SE.ArchivedEvent.toJavaProto(ae)))).asScala
       )
-      new GrpcControl(control)
+      new javadsl.GrpcControl(control)
     }
 
     import scala.jdk.CollectionConverters._
 
     override def projectRows[E, R](
-        batchSource: BatchSource[E],
+        batchSource: javadsl.BatchSource[E],
         p: Projection[E],
         batchRows: BatchRows[R, JdbcAction],
-        mkRow: Project[E, R]): Control = {
+        mkRow: Project[E, R]): javadsl.Control = {
       val control = Projection.projectRows(
         batchSource.toScala,
         p,
         { rows: Seq[R] => batchRows(rows.asJava) })(e => mkRow(e).asScala)
-      new GrpcControl(control)
+      new javadsl.GrpcControl(control)
     }
 
     override def flow = {

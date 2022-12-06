@@ -6,8 +6,7 @@ package com.daml.projection.scaladsl
 import akka.actor.ActorSystem
 import akka.stream.ActorAttributes.Dispatcher
 import akka.testkit.TestKit
-import cats.effect.unsafe.implicits.global
-import com.daml.projection.TestEmbeddedPostgres
+import com.daml.projection.{ JdbcProjector, TestEmbeddedPostgres }
 import org.scalatest.matchers.must._
 import org.scalatest.wordspec._
 
@@ -19,7 +18,7 @@ class ProjectorSpec
   implicit val ec = system.dispatchers.lookup(Projector.BlockingDispatcherId)
   "A Doobie Projector Flow" must {
     "have a dispatcher dedicated to blocking operations specified via attributes" in {
-      val flow = Doobie.Projector().flow
+      val flow = JdbcProjector(ds).flow
 
       flow.getAttributes.attributeList must be(
         List(Dispatcher("projection.blocking-io-dispatcher"))

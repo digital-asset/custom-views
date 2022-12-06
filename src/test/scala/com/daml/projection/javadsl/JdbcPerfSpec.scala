@@ -1,7 +1,8 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.projection.javadsl;
+package com.daml.projection
+package javadsl
 
 import akka.NotUsed
 import akka.actor.ActorSystem
@@ -10,18 +11,6 @@ import akka.testkit.TestKit
 import com.daml.ledger.api.v1.event.ExercisedEvent
 import com.daml.ledger.api.v1.value.Identifier
 import com.daml.projection.scaladsl.Projector
-import com.daml.projection.{
-  Batcher,
-  ConsumerRecord,
-  Envelope,
-  Offset,
-  Projection,
-  ProjectionFilter,
-  ProjectionId,
-  ProjectionTable,
-  TestEmbeddedPostgres,
-  TxBoundary
-}
 import org.scalatest._
 import org.scalatest.wordspec._
 import org.scalatest.matchers.must._
