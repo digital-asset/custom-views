@@ -15,7 +15,7 @@ import java.{ util => ju }
 import java.util.{ function => juf }
 
 /**
- * Captures the database action that can be executed by the [[Projector]].
+ * Captures the database action that can be executed by the [[javadsl.Projector]] or [[scaladsl.Projector]].
  */
 @SerialVersionUID(1L)
 @FunctionalInterface
