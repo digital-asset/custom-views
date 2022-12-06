@@ -14,7 +14,7 @@ ensuring that isolation and atomicity of changes perceived by database users is 
 
 ## Reference documentation
 
-The reference documentation is available [here](./REFERENCE.md).
+The reference documentation is available [at docs.daml.com](https://docs.daml.com/2.5.0/app-dev/custom-views/index.html).
 
 ## Examples
 A quickstart example using the projection library can be found [here](https://github.com/digital-asset/ex-custom-views-spring-boot).
