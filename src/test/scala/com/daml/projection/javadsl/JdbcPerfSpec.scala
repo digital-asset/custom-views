@@ -9,6 +9,7 @@ import akka.stream.scaladsl.Source
 import akka.testkit.TestKit
 import com.daml.ledger.api.v1.event.ExercisedEvent
 import com.daml.ledger.api.v1.value.Identifier
+import com.daml.projection.scaladsl.Projector
 import com.daml.projection.{
   Batcher,
   ConsumerRecord,
@@ -42,13 +43,11 @@ class JdbcPerfSpec
     super.afterAll()
     TestKit.shutdownActorSystem(system)
   }
+  implicit val ec = system.dispatchers.lookup(Projector.BlockingDispatcherId)
 
   "A projection" must {
     "be able to ingest X events/second" in {
-      val createConnection: ConnectionSupplier =
-        () => currentDb.getConnection()
-
-      val projector = JdbcProjector.create(createConnection, system)
+      val projector = JdbcProjector.create(ds, system)
       val nrTxs = 200
       val nrEventsPerTx = 10000
       val generatedSize = nrTxs * nrEventsPerTx

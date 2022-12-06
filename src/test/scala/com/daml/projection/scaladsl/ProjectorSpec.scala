@@ -16,6 +16,7 @@ class ProjectorSpec
     with AnyWordSpecLike
     with Matchers
     with TestEmbeddedPostgres {
+  implicit val ec = system.dispatchers.lookup(Projector.BlockingDispatcherId)
   "A Doobie Projector Flow" must {
     "have a dispatcher dedicated to blocking operations specified via attributes" in {
       val flow = Doobie.Projector().flow

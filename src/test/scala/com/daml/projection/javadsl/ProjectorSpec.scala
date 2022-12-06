@@ -19,7 +19,7 @@ class ProjectorSpec
   "A Jdbc Projector Flow" must {
     "have a dispatcher dedicated to blocking operations specified via attributes" in {
       val projector = JdbcProjector.create(
-        () => currentDb.getConnection(),
+        ds,
         system
       )
       val flow = projector.flow

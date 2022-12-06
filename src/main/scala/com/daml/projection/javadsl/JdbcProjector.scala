@@ -16,6 +16,7 @@ import com.typesafe.scalalogging.StrictLogging
 
 import java.sql.SQLException
 import java.util.Optional
+import javax.sql.DataSource
 import scala.concurrent.Promise
 import scala.jdk.CollectionConverters._
 import scala.jdk.OptionConverters._
@@ -106,13 +107,13 @@ object JdbcProjector {
    * Creates a JdbcProjector.
    */
   def create(
-      createConnection: ConnectionSupplier,
+      ds: DataSource,
       system: ActorSystem): Projector[JdbcAction] = {
-    new JdbcProjectorImpl(createConnection, system)
+    new JdbcProjectorImpl(ds, system)
   }
 
   private final class JdbcProjectorImpl(
-      createConnection: ConnectionSupplier,
+      ds: DataSource,
       system: ActorSystem)
       extends Projector[JdbcAction] with StrictLogging {
     val advance: Advance[JdbcAction] = AdvanceProjection(_, _)
@@ -163,7 +164,7 @@ object JdbcProjector {
         )
         new JdbcAction() {
           def execute(con: java.sql.Connection): Int = {
-            Migration.migrateIfConfigured(con)
+            Migration.migrateIfConfigured(ds)
             insertIfNotExists.execute(con)
           }
         }
@@ -173,7 +174,7 @@ object JdbcProjector {
     implicit val sys: ActorSystem = system
     implicit val projector: scaladsl.Projector[JdbcAction] = this
     private def createCon() = {
-      val con = createConnection()
+      val con = ds.getConnection()
       con.setAutoCommit(false)
       con
     }
@@ -185,7 +186,7 @@ object JdbcProjector {
         """.stripMargin
       val connection = createCon()
       try {
-        Migration.migrateIfConfigured(connection)
+        Migration.migrateIfConfigured(ds)
         val ps = connection.prepareStatement(sql)
         ps.setString(1, projection.id.value)
         try {

@@ -10,8 +10,12 @@ import com.daml.ledger.javaapi.data.Event;
 import com.daml.projection.*;
 import com.daml.projection.javadsl.*;
 import com.daml.quickstart.iou.iou.Iou;
+import com.zaxxer.hikari.HikariConfig;
+import com.zaxxer.hikari.HikariDataSource;
 
+import java.io.PrintWriter;
 import java.util.List;
+import java.util.Properties;
 import java.util.Set;
 
 /*
@@ -27,12 +31,14 @@ public class JavaApiExample {
     var partyId = "alice";
 
     try {
-      ConnectionSupplier connectionSupplier =
-          () -> {
-            return java.sql.DriverManager.getConnection(url, user, password);
-          };
+      HikariConfig config = new HikariConfig();
+      config.setJdbcUrl(url);
+      config.setUsername(user);
+      config.setPassword(password);
+
+      HikariDataSource ds = new HikariDataSource(config);
       var system = ActorSystem.create("my-projection-app");
-      var projector = JdbcProjector.create(connectionSupplier, system);
+      var projector = JdbcProjector.create(ds, system);
 
       var projectionTable = new ProjectionTable("ious");
 
