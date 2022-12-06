@@ -35,14 +35,6 @@ trait BatchSource[E] {
 
 object BatchSource {
 
-  private def eventForFilter[E](
-      templateIdSetFromEvent: java.util.function.Function[E, ju.Optional[JIdentifier]],
-      partySetFromEvent: java.util.function.Function[E, ju.Set[String]]) = new EventForFilter[E] {
-    override def templateId(event: E): Option[Identifier] =
-      OptionConverters.toScala(templateIdSetFromEvent.apply(event)).map(i => Identifier.fromJavaProto(i.toProto))
-    override def partySet(event: E): Set[String] = partySetFromEvent.apply(event).asScala.toSet
-  }
-
   /**
    * Creates a [[BatchSource]] from existing batches, useful for testing purposes.
    */
@@ -136,4 +128,12 @@ object BatchSource {
           J.TreeEvent.fromProtoTreeEvent(ST.TreeEvent.toJavaProto(event))))
     }
   }.toJava
+
+  private def eventForFilter[E](
+      templateIdSetFromEvent: java.util.function.Function[E, ju.Optional[JIdentifier]],
+      partySetFromEvent: java.util.function.Function[E, ju.Set[String]]) = new EventForFilter[E] {
+    override def templateId(event: E): Option[Identifier] =
+      OptionConverters.toScala(templateIdSetFromEvent.apply(event)).map(i => Identifier.fromJavaProto(i.toProto))
+    override def partySet(event: E): Set[String] = partySetFromEvent.apply(event).asScala.toSet
+  }
 }
