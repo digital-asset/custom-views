@@ -46,15 +46,12 @@ val deps = Seq(
   "com.daml" % "bindings-java" % DamlVersion,
   "com.typesafe.akka" %% "akka-stream" % AkkaVersion,
   "com.typesafe.akka" %% "akka-discovery" % AkkaVersion,
-  "org.tpolecat" %% "doobie-core" % DoobieVersion,
-  "org.tpolecat" %% "doobie-hikari" % DoobieVersion,
-  "org.tpolecat" %% "doobie-postgres" % DoobieVersion,
-  "org.tpolecat" %% "doobie-postgres-circe" % DoobieVersion,
   "io.circe" %% "circe-core" % circeVersion,
   "io.circe" %% "circe-generic" % circeVersion,
   "io.circe" %% "circe-parser" % circeVersion,
   "org.flywaydb" % "flyway-core" % "8.5.11",
   "com.typesafe.scala-logging" %% "scala-logging" % "3.9.4",
+  "com.zaxxer" % "HikariCP" % "5.0.1" % Test,
   "com.typesafe.akka" %% "akka-stream-testkit" % AkkaVersion % Test,
   "org.scalatest" %% "scalatest-core" % ScalaTestVersion % Test,
   "org.scalatest" %% "scalatest-matchers-core" % ScalaTestVersion % Test,
@@ -63,8 +60,12 @@ val deps = Seq(
   "ch.qos.logback" % "logback-classic" % "1.2.10" % Test,
   "com.opentable.components" % "otj-pg-embedded" % "1.0.1" % Test,
   "org.testcontainers" % "testcontainers" % "1.17.6" % Test,
+  "org.tpolecat" %% "doobie-postgres" % DoobieVersion % Test,
+  "org.tpolecat" %% "doobie-core" % DoobieVersion % Test,
+  "org.tpolecat" %% "doobie-hikari" % DoobieVersion % Test,
+  "org.tpolecat" %% "doobie-postgres-circe" % DoobieVersion % Test,
   "com.daml" % "bindings-rxjava" % DamlVersion % Test,
-  ("com.daml" %% "sandbox-on-x" % DamlVersion % Test).exclude("org.slf4j", "slf4j-api"),
+  ("com.daml" %% "sandbox-on-x" % DamlVersion % Test).exclude("org.slf4j", "slf4j-api")
 )
 
 val scalacOpts =
@@ -136,7 +137,7 @@ val scalacOpts =
       "-Ywarn-value-discard",
       // Avoid "Exhaustivity analysis reached max recursion depth".
       "-Ypatmat-exhaust-depth",
-      "80",
+      "80"
     )
 
 lazy val projection = (project in file("."))
@@ -158,7 +159,7 @@ lazy val projection = (project in file("."))
     libraryDependencies ++= deps,
     Test / fork := true,
     automateHeaderSettings(PerfTest),
-    inConfig(PerfTest)(JavaFormatterPlugin.toBeScopedSettings),
+    inConfig(PerfTest)(JavaFormatterPlugin.toBeScopedSettings)
   )
 lazy val PerfTest = config("perf").extend(Test)
 def perfFilter(name: String): Boolean = name.endsWith("PerfSpec")

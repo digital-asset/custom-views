@@ -16,6 +16,9 @@ ensuring that isolation and atomicity of changes perceived by database users is 
 
 The reference documentation is available [here](./REFERENCE.md).
 
+## Examples
+A quickstart example using the projection library can be found [here](https://github.com/digital-asset/ex-custom-views-spring-boot).
+
 ## Releasing
 
 This project is set up to create a snapshot on Maven for every `main` commit.

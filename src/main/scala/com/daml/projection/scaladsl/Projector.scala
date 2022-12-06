@@ -1,8 +1,8 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.projection.scaladsl
-
+package com.daml.projection
+package scaladsl
 import akka.Done
 import akka.stream.scaladsl.Flow
 import akka.stream.{ ActorAttributes, Attributes }
@@ -41,8 +41,11 @@ trait Projector[A] {
   def advance: Projection.Advance[A]
 
   /**
-   * A function that creates a database action to insert a projection row in the projection table if it does not already
-   * exist.
+   * A function that creates a database action to
+   *
+   *   - Create the projection table if `projection.migrate-on-project` is set to true.
+   *   - Insert a projection row with the [[ProjectionId]], if a row does not already exist for the [[ProjectionId]].
+   *
    * @return
    *   the init function
    */

@@ -1,9 +1,10 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.projection.javadsl
+package com.daml.projection
+package javadsl
 
-import com.daml.projection.javadsl.Sql.NamedParameter
+import com.daml.projection.Sql.NamedParameter
 import org.scalatest.matchers.must._
 import org.scalatest.wordspec._
 

@@ -1,7 +1,8 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.projection.javadsl
+package com.daml.projection
+
 import com.typesafe.scalalogging.LazyLogging
 
 import java.sql.SQLException
@@ -14,7 +15,7 @@ import java.{ util => ju }
 import java.util.{ function => juf }
 
 /**
- * Captures the database action that can be executed by the [[Projector]].
+ * Captures the database action that can be executed by the [[javadsl.Projector]] or [[scaladsl.Projector]].
  */
 @SerialVersionUID(1L)
 @FunctionalInterface
@@ -42,7 +43,7 @@ final case object Rollback extends JdbcAction {
  * [[UpdateMany]].
  */
 object Sql {
-  val BindPattern: Regex = """([^:]):([a-z]+[a-z_0-9]+)|([\?]{1})""".r
+  val BindPattern: Regex = """([^:]):([a-z]+[a-z_0-9]*)|([\?]{1})""".r
 
   /**
    * Creates a [[Binder]] from a `sql` statement.
@@ -182,7 +183,10 @@ final case class BindValue[T](value: T, pos: Int) extends Setter {
       case null                         => ps.setNull(pos, java.sql.Types.NULL)
       case x: Optional[_] if x.isEmpty  => ps.setNull(pos, java.sql.Types.NULL)
       case x: Optional[_] if !x.isEmpty => ps.setObject(pos, x.get())
-      case x                            => ps.setObject(pos, x)
+      // TODO fix in typeclass solution
+      case x: Option[_] if x.isEmpty => ps.setNull(pos, java.sql.Types.NULL)
+      case Some(x)                   => ps.setObject(pos, x)
+      case x                         => ps.setObject(pos, x)
     }
   }
 }
@@ -369,4 +373,6 @@ object UpdateMany {
   def create[R](binder: Binder[R]): BatchRows[R, JdbcAction] = {
     rows => ExecuteUpdateMany(binder.sql, rows.asScala.toList, binder)
   }
+  def apply[R](binder: Binder[R]): Seq[R] => JdbcAction =
+    rows => ExecuteUpdateMany(binder.sql, rows, binder)
 }
