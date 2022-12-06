@@ -57,7 +57,7 @@ jobs:
           command: .circleci/autoforward.py
       - run:
           name: build
-          command: sbt test
+          command: sbt doc test
 
   release:
     executor: nix
