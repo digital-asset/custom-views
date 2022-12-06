@@ -12,8 +12,13 @@ import com.daml.projection.{ scaladsl => S, Batch, ConsumerRecord, Projection }
 import com.daml.ledger.javaapi.{ data => J }
 import com.daml.ledger.api.v1.{ event => SE }
 import com.daml.ledger.api.v1.event.Event.Event.{ Created => SCreated }
+import com.daml.ledger.api.v1.value.Identifier
 import com.daml.ledger.api.v1.{ transaction => ST }
+import com.daml.ledger.javaapi.data.{ Identifier => JIdentifier }
+import com.daml.projection.scaladsl.BatchSource.EventForFilter
 
+import java.{ util => ju }
+import scala.compat.java8.OptionConverters
 import scala.jdk.CollectionConverters._
 
 /**
@@ -30,21 +35,40 @@ trait BatchSource[E] {
 
 object BatchSource {
 
+  private def eventForFilter[E](
+      templateIdSetFromEvent: java.util.function.Function[E, ju.Optional[JIdentifier]],
+      partySetFromEvent: java.util.function.Function[E, ju.Set[String]]) = new EventForFilter[E] {
+    override def templateId(event: E): Option[Identifier] =
+      OptionConverters.toScala(templateIdSetFromEvent.apply(event)).map(i => Identifier.fromJavaProto(i.toProto))
+    override def partySet(event: E): Set[String] = partySetFromEvent.apply(event).asScala.toSet
+  }
+
   /**
    * Creates a [[BatchSource]] from existing batches, useful for testing purposes.
    */
-  def create[E](batches: java.lang.Iterable[Batch[E]]): BatchSource[E] = S.BatchSource(batches.asScala.toList).toJava
+  def create[E](
+      batches: java.lang.Iterable[Batch[E]],
+      templateIdFromEvent: java.util.function.Function[E, ju.Optional[JIdentifier]],
+      partySetFromEvent: java.util.function.Function[E, ju.Set[String]]): BatchSource[E] =
+    S.BatchSource(batches.asScala.toList)(eventForFilter(templateIdFromEvent, partySetFromEvent)).toJava
 
   /**
    * Creates a [[BatchSource]] from existing batches from an akka.stream.javadsl.Source, useful for testing purposes.
    */
-  def create[E](source: Source[Batch[E], NotUsed]) = S.BatchSource(source.asScala).toJava
+  def create[E](
+      source: Source[Batch[E], NotUsed],
+      templateIdSetFromEvent: java.util.function.Function[E, ju.Optional[JIdentifier]],
+      partySetFromEvent: java.util.function.Function[E, ju.Set[String]]) =
+    S.BatchSource(source.asScala)(eventForFilter(templateIdSetFromEvent, partySetFromEvent)).toJava
 
   /**
    * Creates a [[BatchSource]] from existing consumer records, useful for testing purposes.
    */
-  def createFromRecords[E](records: java.lang.Iterable[ConsumerRecord[E]]): BatchSource[E] =
-    S.BatchSource.fromRecords(records.asScala.toList).toJava
+  def createFromRecords[E](
+      records: java.lang.Iterable[ConsumerRecord[E]],
+      templateIdSetFromEvent: java.util.function.Function[E, ju.Optional[JIdentifier]],
+      partySetFromEvent: java.util.function.Function[E, ju.Set[String]]): BatchSource[E] =
+    S.BatchSource.fromRecords(records.asScala.toList)(eventForFilter(templateIdSetFromEvent, partySetFromEvent)).toJava
 
   /**
    * Creates a [[BatchSource]] from a function that transforms CreatedEvent`s into `Ct`s.

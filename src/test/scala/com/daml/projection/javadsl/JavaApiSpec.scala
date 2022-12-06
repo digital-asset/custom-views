@@ -19,7 +19,7 @@ import org.scalatest.wordspec._
 import org.scalatest.concurrent.Eventually.eventually
 
 import java.sql.SQLException
-import java.util.{ List => JList }
+import java.util.{ List => JList, Optional, Set => JSet }
 import scala.jdk.CollectionConverters._
 import scala.jdk.FunctionConverters._
 import scala.jdk.FutureConverters._
@@ -45,6 +45,9 @@ class JavaApiSpec
     TestKit.shutdownActorSystem(system)
   }
 
+  val templateIdFromEvent = { e: Event => Optional.of(e.getTemplateId()) }.asJava
+  val partySetFromEvent = { e: Event => JSet.copyOf(e.getWitnessParties()) }.asJava
+
   "Java API for projections" must {
     "project from a test batch source" in {
       val createConnection: ConnectionSupplier =
@@ -57,10 +60,11 @@ class JavaApiSpec
       val offsets = (0 until size).map(i => Offset(f"$i%07d"))
 
       val batch = Batch.create(
-        offsets.map(o => mkEnvelope(o, mkIou(o, alice, alice))).asJava,
+        offsets.map(o => mkEnvelope(o, mkIou(o, alice, alice), JList.of(alice))).asJava,
         TxBoundary.create[Event](projectionId, offsets.last)
       )
-      val batchSource = BatchSource.create(JList.of(batch))
+
+      val batchSource = BatchSource.create(JList.of(batch), templateIdFromEvent, partySetFromEvent)
       val projector = JdbcProjector.create(createConnection, system)
 
       val projection = Projection.create[Event](
@@ -581,16 +585,16 @@ class JavaApiSpec
         val offset = Offset(f"$i%07d")
         if (i < size / 2) {
           Batch.create(
-            List(mkEnvelope(offset, mkIou(offset, alice, alice))).asJava,
+            List(mkEnvelope(offset, mkIou(offset, alice, alice), JList.of(alice))).asJava,
             TxBoundary.create[Event](projectionId, offset)
           )
         } else {
           Batch.create(
-            List(mkEnvelope(offset, mkIou(offset, alice, alice))).asJava
+            List(mkEnvelope(offset, mkIou(offset, alice, alice), JList.of(alice))).asJava
           )
         }
       }
-      val batchSource = BatchSource.create(batches.asJava)
+      val batchSource = BatchSource.create(batches.asJava, templateIdFromEvent, partySetFromEvent)
       val projector = JdbcProjector.create(createConnection, system)
 
       val projection = Projection.create[Event](
@@ -636,10 +640,10 @@ class JavaApiSpec
       Set(issuer, owner).asJava
     )
 
-  def mkEnvelope(offset: Offset, iou: Iou.Contract) = {
+  def mkEnvelope(offset: Offset, iou: Iou.Contract, witnessParties: JList[String]) = {
     Envelope.create[Event](
       new CreatedEvent(
-        JList.of(),
+        witnessParties,
         offset.value,
         iou.getContractTypeId,
         "contract-id",

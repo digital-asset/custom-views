@@ -9,6 +9,7 @@ import akka.stream.scaladsl.Source
 import akka.testkit.TestKit
 import com.daml.ledger.api.v1.event.ExercisedEvent
 import com.daml.ledger.api.v1.value.Identifier
+import com.daml.ledger.javaapi.data.{ Identifier => JIdentifier }
 import com.daml.projection.{
   Batcher,
   ConsumerRecord,
@@ -28,7 +29,11 @@ import org.scalatest.matchers.must._
 import scala.concurrent.Await
 import scala.concurrent.duration._
 import scala.jdk.CollectionConverters._
+import scala.jdk.FunctionConverters._
 import scala.jdk.FutureConverters._
+import scala.compat.java8.OptionConverters
+
+import java.util.{ Set => JSet }
 
 class JdbcPerfSpec
     extends TestKit(ActorSystem("PerfSpec"))
@@ -107,7 +112,13 @@ class JdbcPerfSpec
         )).asJava
       }
 
-      val batchSource = BatchSource.create(source.via(Batcher(nrEventsPerTx, 1.second)).asJava)
+      val templateIdFromEvent = { e: ExercisedEvent =>
+        OptionConverters.toJava(e.templateId.map(i => JIdentifier.fromProto(Identifier.toJavaProto(i))))
+      }.asJava
+      val partySetFromEvent = { e: ExercisedEvent => JSet.copyOf(e.witnessParties.asJava) }.asJava
+
+      val batchSource =
+        BatchSource.create(source.via(Batcher(nrEventsPerTx, 1.second)).asJava, templateIdFromEvent, partySetFromEvent)
       val start = System.currentTimeMillis
       println("Starting projection.")
 

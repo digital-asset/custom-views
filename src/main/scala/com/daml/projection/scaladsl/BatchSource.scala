@@ -9,6 +9,7 @@ import akka.grpc.GrpcClientSettings
 import akka.stream.scaladsl.{ Flow, Keep, Sink, Source }
 import com.daml.ledger.api.v1.event.{ CreatedEvent, Event }
 import com.daml.ledger.api.v1.event.Event.Event.Created
+import com.daml.ledger.api.v1.transaction_filter.TransactionFilter
 import com.daml.ledger.api.v1.{ event => SE }
 import com.daml.ledger.api.v1.{ transaction => ST }
 import com.daml.ledger.api.v1.{ transaction_filter => SF }
@@ -30,8 +31,13 @@ trait BatchSource[E] {
 }
 
 object BatchSource {
+  trait EventForFilter[E] {
+    def templateId(event: E): Option[Identifier]
+    def partySet(event: E): Set[String]
+  }
+
   // TODO add a create method to create a source from protobuf files https://github.com/digital-asset/daml/issues/15659
-  def apply[E](batches: Seq[Batch[E]]): BatchSource[E] =
+  def apply[E: EventForFilter](batches: Seq[Batch[E]]): BatchSource[E] =
     new BatchSource[E] {
       def src(projection: Projection[E])(implicit sys: ActorSystem): Source[Batch[E], Control] = {
         val control = new TestControl
@@ -41,7 +47,7 @@ object BatchSource {
       }
     }
 
-  def apply[E](source: Source[Batch[E], NotUsed]): BatchSource[E] =
+  def apply[E: EventForFilter](source: Source[Batch[E], NotUsed]): BatchSource[E] =
     new BatchSource[E] {
       def src(projection: Projection[E])(implicit sys: ActorSystem): Source[Batch[E], Control] = {
         val control = new TestControl
@@ -51,7 +57,7 @@ object BatchSource {
       }
     }
 
-  def fromRecords[E](records: Seq[ConsumerRecord[E]]): BatchSource[E] =
+  def fromRecords[E: EventForFilter](records: Seq[ConsumerRecord[E]]): BatchSource[E] =
     new BatchSource[E] {
       def src(projection: Projection[E])(implicit sys: ActorSystem): Source[Batch[E], Control] = {
         val control = new TestControl
@@ -62,13 +68,22 @@ object BatchSource {
       }
     }
 
+  private def filterEvent[E](transactionFilter: TransactionFilter)(event: E)(implicit
+      eventForFilter: EventForFilter[E]) = {
+    val templateIds = getTemplateIdsFromFilter(transactionFilter)
+    val parties = getPartiesStrFromFilter(transactionFilter)
+    eventForFilter.templateId(event).exists(templateIds.contains(_)) &&
+    eventForFilter.partySet(event).exists(parties.contains(_))
+  }
+
   // TODO https://github.com/digital-asset/daml/issues/15658 filter using transactionFilter
-  private def filterEnvelope[E](projection: Projection[E])(e: Envelope[E]) =
+  private def filterEnvelope[E: EventForFilter](projection: Projection[E])(e: Envelope[E]) =
     projection.predicate(e) &&
       projection.offset.forall(o => e.offset.forall(_.value >= o.value)) &&
-      projection.endOffset.forall(o => e.offset.forall(_.value <= o.value))
+      projection.endOffset.forall(o => e.offset.forall(_.value <= o.value)) &&
+      filterEvent(projection.transactionFilter)(e.event)
 
-  private def filterBatch[E](projection: Projection[E])(b: Batch[E]): Batch[E] =
+  private def filterBatch[E: EventForFilter](projection: Projection[E])(b: Batch[E]): Batch[E] =
     b.copy(envelopes = b.envelopes.filter(filterEnvelope(projection)))
 
   private def handleCompletion[T](control: Control): Flow[T, T, Control] =
@@ -129,6 +144,8 @@ object BatchSource {
     transactionFilter.filtersByParty.flatMap { case (_, filters) =>
       filters.getInclusive.templateIds
     }.toSet
+
+  private def getPartiesStrFromFilter(transactionFilter: SF.TransactionFilter) = transactionFilter.filtersByParty.keySet
 
   private def removeTemplateIdFilters(transactionFilter: SF.TransactionFilter) =
     SF.TransactionFilter(transactionFilter.filtersByParty.map {
