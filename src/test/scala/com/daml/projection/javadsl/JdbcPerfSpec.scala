@@ -1,7 +1,8 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.projection.javadsl;
+package com.daml.projection
+package javadsl
 
 import akka.NotUsed
 import akka.actor.ActorSystem
@@ -9,18 +10,7 @@ import akka.stream.scaladsl.Source
 import akka.testkit.TestKit
 import com.daml.ledger.api.v1.event.ExercisedEvent
 import com.daml.ledger.api.v1.value.Identifier
-import com.daml.projection.{
-  Batcher,
-  ConsumerRecord,
-  Envelope,
-  Offset,
-  Projection,
-  ProjectionFilter,
-  ProjectionId,
-  ProjectionTable,
-  TestEmbeddedPostgres,
-  TxBoundary
-}
+import com.daml.projection.scaladsl.Projector
 import org.scalatest._
 import org.scalatest.wordspec._
 import org.scalatest.matchers.must._
@@ -42,13 +32,11 @@ class JdbcPerfSpec
     super.afterAll()
     TestKit.shutdownActorSystem(system)
   }
+  implicit val ec = system.dispatchers.lookup(Projector.BlockingDispatcherId)
 
   "A projection" must {
     "be able to ingest X events/second" in {
-      val createConnection: ConnectionSupplier =
-        () => currentDb.getConnection()
-
-      val projector = JdbcProjector.create(createConnection, system)
+      val projector = JdbcProjector.create(ds, system)
       val nrTxs = 200
       val nrEventsPerTx = 10000
       val generatedSize = nrTxs * nrEventsPerTx

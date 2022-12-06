@@ -5,9 +5,13 @@
  */
 package com.daml.projection
 
+import scala.concurrent.ExecutionContext
 import com.opentable.db.postgres.embedded.EmbeddedPostgres
 import com.typesafe.scalalogging.StrictLogging
+import doobie.Transactor
 import org.scalatest.{ BeforeAndAfterAll, BeforeAndAfterEach, Suite }
+
+import javax.sql.DataSource
 
 case class Sensitive(value: String) extends AnyVal {
   override def toString: String = "***"
@@ -43,8 +47,12 @@ trait TestEmbeddedPostgres extends BeforeAndAfterEach with BeforeAndAfterAll wit
   private var currentDbConfig: DBConfig = _
   var currentDb: TestDB = _
   import cats.effect.IO
-  implicit def xa: doobie.util.transactor.Transactor[IO] = currentDb.xa
+
+  implicit def xa(implicit ec: ExecutionContext): Transactor.Aux[IO, _ <: DataSource] = currentDb.xa
+
   def getEmbeddedPostgres() = postgres
+  def ds = currentDb.ds
+
   override protected def beforeAll(): Unit = {
     super.beforeAll()
     postgres = EmbeddedPostgres.builder()
@@ -65,7 +73,6 @@ trait TestEmbeddedPostgres extends BeforeAndAfterEach with BeforeAndAfterAll wit
 
   override protected def beforeEach(): Unit = {
     super.beforeEach()
-    currentDb.migrate()
   }
 
   override protected def afterEach(): Unit = {

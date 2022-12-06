@@ -44,11 +44,8 @@ class JavaApiSpec
     super.afterAll()
     TestKit.shutdownActorSystem(system)
   }
-
   "Java API for projections" must {
     "project from a test batch source" in {
-      val createConnection: ConnectionSupplier =
-        () => currentDb.getConnection()
       val alice = uniqueParty("Alice")
       val projectionId = ProjectionId(java.util.UUID.randomUUID().toString())
 
@@ -61,7 +58,7 @@ class JavaApiSpec
         TxBoundary.create[Event](projectionId, offsets.last)
       )
       val batchSource = BatchSource.create(JList.of(batch))
-      val projector = JdbcProjector.create(createConnection, system)
+      val projector = JdbcProjector.create(ds, system)
 
       val projection = Projection.create[Event](
         projectionId,
@@ -89,8 +86,6 @@ class JavaApiSpec
     }
 
     "project created events up to endOffset and stop automatically" in {
-      val createConnection: ConnectionSupplier =
-        () => currentDb.getConnection()
       val alice = uniqueParty("Alice")
       val projectionId = ProjectionId(java.util.UUID.randomUUID().toString())
       val projectionTable = ProjectionTable("ious")
@@ -100,7 +95,7 @@ class JavaApiSpec
       createIou(alice, alice, 2d).futureValue
       val last = createIou(alice, alice, 3d).futureValue
 
-      val projector = JdbcProjector.create(createConnection, system)
+      val projector = JdbcProjector.create(ds, system)
 
       val projection = Projection.create[Event](
         projectionId,
@@ -129,8 +124,6 @@ class JavaApiSpec
     }
 
     "project created events using a batch operation up to endOffset and stop automatically" in {
-      val createConnection: ConnectionSupplier =
-        () => currentDb.getConnection()
       val alice = uniqueParty("Alice")
       val projectionId = ProjectionId(java.util.UUID.randomUUID().toString())
       val projectionTable = ProjectionTable("ious")
@@ -140,7 +133,7 @@ class JavaApiSpec
       createIou(alice, alice, 2d).futureValue
       val last = createIou(alice, alice, 3d).futureValue
 
-      val projector = JdbcProjector.create(createConnection, system)
+      val projector = JdbcProjector.create(ds, system)
 
       val mkContract = { ce =>
         Iou.Contract.fromCreatedEvent(ce)
@@ -206,8 +199,6 @@ class JavaApiSpec
     }
 
     "project contracts up to endOffset and stop automatically" in {
-      val createConnection: ConnectionSupplier =
-        () => currentDb.getConnection()
       val alice = uniqueParty("Alice")
       val projectionId = ProjectionId(java.util.UUID.randomUUID().toString())
       val projectionTable = ProjectionTable("ious")
@@ -217,7 +208,7 @@ class JavaApiSpec
       createIou(alice, alice, 2d).futureValue
       val last = createIou(alice, alice, 3d).futureValue
 
-      val projector = JdbcProjector.create(createConnection, system)
+      val projector = JdbcProjector.create(ds, system)
 
       val projection = Projection
         .create[Iou.Contract](
@@ -255,8 +246,6 @@ class JavaApiSpec
     }
 
     "project created and archived events" in {
-      val createConnection: ConnectionSupplier =
-        () => currentDb.getConnection()
       val alice = uniqueParty("Alice")
       val projectionId = ProjectionId(java.util.UUID.randomUUID().toString())
       val projectionTable = ProjectionTable("ious")
@@ -264,7 +253,7 @@ class JavaApiSpec
       Given("created contracts")
       val created = createIou(alice, alice, 2d).futureValue
 
-      val projector = JdbcProjector.create(createConnection, system)
+      val projector = JdbcProjector.create(ds, system)
 
       val projection = Projection
         .create[Event](
@@ -310,8 +299,6 @@ class JavaApiSpec
     }
 
     "project created and archived events continuously" in {
-      val createConnection: ConnectionSupplier =
-        () => currentDb.getConnection()
       val alice = uniqueParty("Alice")
       val projectionId = ProjectionId(java.util.UUID.randomUUID().toString())
       val projectionTable = ProjectionTable("ious")
@@ -319,7 +306,7 @@ class JavaApiSpec
       Given("created contracts")
       createIou(alice, alice, 2d).futureValue
 
-      val projector = JdbcProjector.create(createConnection, system)
+      val projector = JdbcProjector.create(ds, system)
 
       val projection = Projection.create[Event](
         projectionId,
@@ -342,8 +329,6 @@ class JavaApiSpec
     }
 
     "project exercised events" in {
-      val createConnection: ConnectionSupplier =
-        () => currentDb.getConnection()
       val alice = uniqueParty("Alice")
       val bob = uniqueParty("Bob")
 
@@ -367,7 +352,7 @@ class JavaApiSpec
         projectionTable
       ).withPredicate(choice(alice))
 
-      val projector = JdbcProjector.create(createConnection, system)
+      val projector = JdbcProjector.create(ds, system)
       val control = projector.project(
         BatchSource.exercisedEvents(clientSettings),
         projection.withEndOffset(Offset(exercised.completionOffset)).withBatchSize(1),
@@ -393,8 +378,6 @@ class JavaApiSpec
     }
 
     "continue from the projection after projecting events" in {
-      val createConnection: ConnectionSupplier =
-        () => currentDb.getConnection()
       val alice = uniqueParty("Alice")
       val projectionId = ProjectionId(java.util.UUID.randomUUID().toString())
       val projectionTable = ProjectionTable("ious")
@@ -402,7 +385,7 @@ class JavaApiSpec
       Given("created contracts")
       val created = createIou(alice, alice, 1d).futureValue
 
-      val projector = JdbcProjector.create(createConnection, system)
+      val projector = JdbcProjector.create(ds, system)
 
       val projection = Projection.create[Event](
         projectionId,
@@ -456,8 +439,6 @@ class JavaApiSpec
     }
 
     "project tree events" in {
-      val createConnection: ConnectionSupplier =
-        () => currentDb.getConnection()
       val alice = uniqueParty("Alice")
       val bob = uniqueParty("Bob")
       val projectionId = ProjectionId(java.util.UUID.randomUUID().toString())
@@ -468,7 +449,7 @@ class JavaApiSpec
         createAndExerciseIouTransferResult(alice, alice, 100d, bob).contractId
       val exercised = createAndExerciseIouTransfer(alice, alice, 100d, bob).futureValue
 
-      val projector = JdbcProjector.create(createConnection, system)
+      val projector = JdbcProjector.create(ds, system)
 
       val projection = Projection.create[TreeEvent](
         projectionId,
@@ -502,8 +483,6 @@ class JavaApiSpec
     }
 
     "stop the projection process and fail when an exception occurs in a JdbcAction" in {
-      val createConnection: ConnectionSupplier =
-        () => currentDb.getConnection()
       val alice = uniqueParty("Alice")
       val projectionId = ProjectionId(java.util.UUID.randomUUID().toString())
       val projectionTable = ProjectionTable("ious")
@@ -511,7 +490,7 @@ class JavaApiSpec
       Given("created contracts")
       createIou(alice, alice, 1d).futureValue
 
-      val projector = JdbcProjector.create(createConnection, system)
+      val projector = JdbcProjector.create(ds, system)
 
       val projection = Projection.create[Event](
         projectionId,
@@ -536,13 +515,11 @@ class JavaApiSpec
     }
 
     "stop the projection process and fail when using bad grpc settings" in {
-      val createConnection: ConnectionSupplier =
-        () => currentDb.getConnection()
       val alice = uniqueParty("Alice")
       val projectionId = ProjectionId(java.util.UUID.randomUUID().toString())
       val projectionTable = ProjectionTable("ious")
 
-      val projector = JdbcProjector.create(createConnection, system)
+      val projector = JdbcProjector.create(ds, system)
 
       val projection = Projection.create[Event](
         projectionId,
@@ -568,8 +545,6 @@ class JavaApiSpec
       control.cancel().asScala.futureValue mustBe Done
     }
     "project ledger data visible by other db sessions according to txs on ledger" in {
-      val createConnection: ConnectionSupplier =
-        () => currentDb.getConnection()
       val alice = uniqueParty("Alice")
       val projectionId = ProjectionId(java.util.UUID.randomUUID().toString())
 
@@ -591,7 +566,7 @@ class JavaApiSpec
         }
       }
       val batchSource = BatchSource.create(batches.asJava)
-      val projector = JdbcProjector.create(createConnection, system)
+      val projector = JdbcProjector.create(ds, system)
 
       val projection = Projection.create[Event](
         projectionId,
