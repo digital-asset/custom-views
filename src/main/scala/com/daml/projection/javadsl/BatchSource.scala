@@ -15,7 +15,7 @@ import com.daml.ledger.api.v1.event.Event.Event.{ Created => SCreated }
 import com.daml.ledger.api.v1.value.Identifier
 import com.daml.ledger.api.v1.{ transaction => ST }
 import com.daml.ledger.javaapi.data.{ Identifier => JIdentifier }
-import com.daml.projection.scaladsl.BatchSource.EventForFilter
+import com.daml.projection.scaladsl.BatchSource.{ GetContractTypeId, GetParties }
 
 import java.{ util => ju }
 import scala.compat.java8.OptionConverters
@@ -40,27 +40,33 @@ object BatchSource {
    */
   def create[E](
       batches: java.lang.Iterable[Batch[E]],
-      templateIdFromEvent: java.util.function.Function[E, ju.Optional[JIdentifier]],
-      partySetFromEvent: java.util.function.Function[E, ju.Set[String]]): BatchSource[E] =
-    S.BatchSource(batches.asScala.toList)(eventForFilter(templateIdFromEvent, partySetFromEvent)).toJava
+      contractTypeIdFromEvent: java.util.function.Function[E, ju.Optional[JIdentifier]],
+      partiesFromEvent: java.util.function.Function[E, ju.Set[String]]): BatchSource[E] =
+    S.BatchSource(batches.asScala.toList)(
+      toGetContractTypeId(contractTypeIdFromEvent),
+      toGetParties(partiesFromEvent)).toJava
 
   /**
    * Creates a [[BatchSource]] from existing batches from an akka.stream.javadsl.Source, useful for testing purposes.
    */
   def create[E](
       source: Source[Batch[E], NotUsed],
-      templateIdSetFromEvent: java.util.function.Function[E, ju.Optional[JIdentifier]],
-      partySetFromEvent: java.util.function.Function[E, ju.Set[String]]) =
-    S.BatchSource(source.asScala)(eventForFilter(templateIdSetFromEvent, partySetFromEvent)).toJava
+      contractTypeIdFromEvent: java.util.function.Function[E, ju.Optional[JIdentifier]],
+      partiesFromEvent: java.util.function.Function[E, ju.Set[String]]) =
+    S.BatchSource(source.asScala)(
+      toGetContractTypeId(contractTypeIdFromEvent),
+      toGetParties(partiesFromEvent)).toJava
 
   /**
    * Creates a [[BatchSource]] from existing consumer records, useful for testing purposes.
    */
   def createFromRecords[E](
       records: java.lang.Iterable[ConsumerRecord[E]],
-      templateIdSetFromEvent: java.util.function.Function[E, ju.Optional[JIdentifier]],
-      partySetFromEvent: java.util.function.Function[E, ju.Set[String]]): BatchSource[E] =
-    S.BatchSource.fromRecords(records.asScala.toList)(eventForFilter(templateIdSetFromEvent, partySetFromEvent)).toJava
+      contractTypeIdFromEvent: java.util.function.Function[E, ju.Optional[JIdentifier]],
+      partiesFromEvent: java.util.function.Function[E, ju.Set[String]]): BatchSource[E] =
+    S.BatchSource.fromRecords(records.asScala.toList)(
+      toGetContractTypeId(contractTypeIdFromEvent),
+      toGetParties(partiesFromEvent)).toJava
 
   /**
    * Creates a [[BatchSource]] from a function that transforms CreatedEvent`s into `Ct`s.
@@ -129,11 +135,12 @@ object BatchSource {
     }
   }.toJava
 
-  private def eventForFilter[E](
-      templateIdSetFromEvent: java.util.function.Function[E, ju.Optional[JIdentifier]],
-      partySetFromEvent: java.util.function.Function[E, ju.Set[String]]) = new EventForFilter[E] {
-    override def templateId(event: E): Option[Identifier] =
-      OptionConverters.toScala(templateIdSetFromEvent.apply(event)).map(i => Identifier.fromJavaProto(i.toProto))
-    override def partySet(event: E): Set[String] = partySetFromEvent.apply(event).asScala.toSet
-  }
+  private def toGetContractTypeId[E](
+      contractTypeIdFromEvent: java.util.function.Function[E, ju.Optional[JIdentifier]]): GetContractTypeId[E] =
+    (event: E) =>
+      OptionConverters.toScala(contractTypeIdFromEvent.apply(event)).map(i => Identifier.fromJavaProto(i.toProto))
+
+  private def toGetParties[E](partiesFromEvent: java.util.function.Function[E, ju.Set[String]]): GetParties[E] =
+    (event: E) => partiesFromEvent.apply(event).asScala.toSet
+
 }
