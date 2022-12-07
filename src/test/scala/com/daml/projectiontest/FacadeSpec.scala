@@ -59,14 +59,14 @@ class FacadeSpec
       import Projection._
       implicit val projector = JdbcProjector(ds)
       val projectionId = ProjectionId("my-id")
-      val events = Projection[Event](projectionId, ProjectionFilter.parties(Set(partyId)), projectionTable)
+      val events = Projection[Event](projectionId, ProjectionFilter.parties(Set(partyId)))
 
       val insert: Project[CreatedEvent, JdbcAction] = { envelope =>
         import envelope._
         val witnessParties = event.witnessParties.mkString(",")
         val iou = IouContract.toIou(event)
 
-        List(ExecuteUpdate(s"""insert into ${table.name}
+        List(ExecuteUpdate(s"""insert into ${projectionTable.name}
           (contract_id, event_id, witness_parties, amount, currency)
           values (?, ?, ?, ?, ?)""")
           .bind(1, event.contractId)
@@ -78,7 +78,7 @@ class FacadeSpec
 
       val delete: Project[ArchivedEvent, JdbcAction] = { envelope =>
         import envelope._
-        List(ExecuteUpdate(s"delete from ${table.name} where contract_id = :contract_id ").bind(
+        List(ExecuteUpdate(s"delete from ${projectionTable.name} where contract_id = :contract_id ").bind(
           "contract_id",
           event.contractId))
       }
@@ -92,8 +92,9 @@ class FacadeSpec
       implicit val projector = JdbcProjector(ds)
 
       val projectionId = ProjectionId("my-id")
+      val projectionTable = ProjectionTable("contracts")
       val exercisedEvents =
-        Projection[ExercisedEvent](projectionId, ProjectionFilter.parties(Set(partyId)), ProjectionTable("contracts"))
+        Projection[ExercisedEvent](projectionId, ProjectionFilter.parties(Set(partyId)))
       val source = BatchSource.exercisedEvents(clientSettings)
 
       val ctrl = Projection.project(source, exercisedEvents) {
@@ -102,7 +103,7 @@ class FacadeSpec
           val actingParties = event.actingParties.mkString(",")
           val witnessParties = event.witnessParties.mkString(",")
           List[JdbcAction](ExecuteUpdate(s"""
-          insert into ${table.name}
+          insert into ${projectionTable.name}
           (contract_id, event_id, acting_parties, witness_parties, event_offset)
           values ()
           """)
@@ -119,14 +120,14 @@ class FacadeSpec
       implicit val projector = JdbcProjector(ds)
 
       val projectionId = ProjectionId("my-id")
-      val events = Projection[Event](projectionId, ProjectionFilter.parties(Set(partyId)), projectionTable)
+      val events = Projection[Event](projectionId, ProjectionFilter.parties(Set(partyId)))
       case class CreatedRow(contractId: String, eventId: String, amount: BigDecimal, currency: String)
 
       val source = BatchSource.events(clientSettings)
       val updateMany = UpdateMany(
         Sql
           .binder[CreatedRow](s"""
-          |insert into ${events.table.name} 
+          |insert into ${projectionTable.name} 
           |(
           |  contract_id, 
           |  event_id, 
@@ -166,12 +167,12 @@ class FacadeSpec
       import IouContract._
       val projectionId = ProjectionId("my-id")
       val events =
-        Projection[Iou.Contract](projectionId, ProjectionFilter.parties(Set(partyId)), projectionTable)
+        Projection[Iou.Contract](projectionId, ProjectionFilter.parties(Set(partyId)))
       case class CreatedRow(contractId: String, amount: BigDecimal, currency: String)
       val updateMany = UpdateMany(
         Sql
           .binder[CreatedRow](s"""
-          |insert into ${events.table.name} 
+          |insert into ${projectionTable.name} 
           |(
           |  contract_id, 
           |  event_id, 

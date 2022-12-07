@@ -31,36 +31,31 @@ object TestUtil {
 
   val jTemplateId = com.daml.ledger.javaapi.data.Identifier.fromProto(Identifier.toJavaProto(templateId))
 
-  def eventsProjection(partyId: String) = {
-    val projectionId = ProjectionId(java.util.UUID.randomUUID().toString())
-    val projectionTable = ProjectionTable("ious")
+  val projectionId = ProjectionId(java.util.UUID.randomUUID().toString())
+  val iousProjectionTable = ProjectionTable("ious")
 
+  def eventsProjection(partyId: String) = {
     Projection[Event](
       projectionId,
-      ProjectionFilter.templateIdsByParty(Map(partyId -> Set(templateId))),
-      projectionTable
+      ProjectionFilter.templateIdsByParty(Map(partyId -> Set(templateId)))
     )
   }
-
   def iouProjection(partyId: String) = {
     val projectionId = ProjectionId(java.util.UUID.randomUUID().toString())
-    val projectionTable = ProjectionTable("ious")
 
     Projection[ContractAndEvent](
       projectionId,
-      ProjectionFilter.templateIdsByParty(Map(partyId -> Set(templateId))),
-      projectionTable
+      ProjectionFilter.templateIdsByParty(Map(partyId -> Set(templateId)))
     )
   }
 
+  val exercisedEventsProjectionTable = ProjectionTable("exercised_events")
   def mkChoice(partyId: String) = {
     val projectionId = ProjectionId(java.util.UUID.randomUUID().toString())
-    val projectionTable = ProjectionTable("exercised_events")
 
     Projection[ExercisedEvent](
       projectionId,
-      ProjectionFilter.parties(Set(partyId)),
-      projectionTable
+      ProjectionFilter.parties(Set(partyId))
     )
   }
 

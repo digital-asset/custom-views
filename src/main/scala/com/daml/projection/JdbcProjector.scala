@@ -115,8 +115,9 @@ object JdbcProjector {
           ExecuteUpdate
             .create(sql)
             .bind(1, projection.id.value)
-            .bind(2, projection.table.name)
-            .bind(3, "{}")
+            // TODO FIX ProjectionTable
+            .bind(2, "") // projection.table.name)
+            .bind(3, "{}") // TODO ProjectionSchema
             .bind(4, projection.getClass.getName),
           // rollback automatically starts a new tx
           _ => Rollback

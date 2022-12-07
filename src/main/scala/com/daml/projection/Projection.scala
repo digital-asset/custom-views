@@ -25,12 +25,10 @@ trait Projection[E] {
   /** Returns the id of the projection */
   def id: ProjectionId
 
-  /** Returns the (main) table this projection projects into */
-  def table: ProjectionTable
-
-  /** Returns the offset where this projection must is reading from the ledger. None means read from the beginning */
+  /** Returns the offset where this projection is reading from the ledger. None means read from the beginning */
   def offset: Option[Offset]
 
+  /** Returns the end offset where this projection is reading from the ledger. None means read continuously */
   def endOffset: Option[Offset]
 
   /** Returns the `TransactionFilter` that is derived from this projection */
@@ -115,12 +113,10 @@ object Projection extends {
    */
   def create[E](
       id: ProjectionId,
-      filter: ProjectionFilter,
-      table: ProjectionTable
+      filter: ProjectionFilter
   ): Projection[E] = Projection[E](
     id,
-    filter,
-    table
+    filter
   )
 
   /**
@@ -131,12 +127,10 @@ object Projection extends {
   def create[E](
       id: ProjectionId,
       filter: ProjectionFilter,
-      table: ProjectionTable,
       offset: Offset
   ): Projection[E] = Projection[E](
     id,
     filter,
-    table,
     Some(offset)
   )
 
@@ -146,10 +140,9 @@ object Projection extends {
   def apply[E](
       id: ProjectionId,
       filter: ProjectionFilter,
-      table: ProjectionTable,
       offset: Option[Offset] = None
   ): Projection[E] =
-    ProjectionImpl[E](id, filter.transactionFilter, table, offset)
+    ProjectionImpl[E](id, filter.transactionFilter, offset)
 
   /**
    * Projects the projection using a [[Project]] function that creates actions from the event. Events of type `E` are
@@ -277,7 +270,6 @@ object Projection extends {
 private[projection] final case class ProjectionImpl[E](
     id: ProjectionId,
     transactionFilter: TransactionFilter,
-    table: ProjectionTable,
     offset: Option[Offset],
     predicate: Projection.Predicate[E] = (_: Envelope[E]) => true,
     endOffset: Option[Offset] = None,
@@ -292,7 +284,6 @@ private[projection] final case class ProjectionImpl[E](
     ProjectionImpl[E2](
       id,
       transactionFilter,
-      table,
       offset,
       env => env.traverseOption(f.unlift).map(predicate).getOrElse(false),
       endOffset,
