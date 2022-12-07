@@ -121,8 +121,8 @@ object BatchSource {
       getParties: GetParties[E]) = {
     val templateIds = getTemplateIdsFromFilter(transactionFilter)
     val parties = getPartiesStrFromFilter(transactionFilter)
-    getContractTypeId.fromEvent(event).exists(templateIds.contains(_)) &&
-    getParties.fromEvent(event).exists(parties.contains(_))
+    getContractTypeId.fromEvent(event).forall(templateIds.contains(_)) &&
+    getParties.fromEvent(event).forall(parties.contains(_))
   }
 
   // TODO https://github.com/digital-asset/daml/issues/15658 filter using transactionFilter
