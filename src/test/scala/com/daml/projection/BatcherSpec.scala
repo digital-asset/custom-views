@@ -32,7 +32,7 @@ class BatcherSpec
       def assertBatches(batchSize: Int, nrBatches: Int) = {
         val envelopes =
           (0 until batchSize * nrBatches)
-            .map(i => Envelope(i, None, None, None, projection.offset, projection.table))
+            .map(i => Envelope(i, None, None, None, projection.offset))
             .toVector
         val probe =
           Source(envelopes).via(Batcher(batchSize, interval)).toMat(TestSink.probe)(Keep.right).run()
@@ -64,7 +64,7 @@ class BatcherSpec
         events.flatMap { i =>
           val offset = Offset(s"$i")
           List(
-            Envelope(i, None, None, None, projection.offset, projection.table),
+            Envelope(i, None, None, None, projection.offset),
             TxBoundary[Int](projection.id, offset)
           )
         }
@@ -111,7 +111,7 @@ class BatcherSpec
         events.flatMap { i =>
           val offset = Offset(s"$i")
           List(
-            Envelope(i, None, None, None, projection.offset, projection.table),
+            Envelope(i, None, None, None, projection.offset),
             TxBoundary[Int](projection.id, offset)
           )
         }
@@ -152,7 +152,7 @@ class BatcherSpec
         events.flatMap { i =>
           val offset = Offset(s"$i")
           List(
-            Envelope(i, None, None, None, projection.offset, projection.table),
+            Envelope(i, None, None, None, projection.offset),
             TxBoundary[Int](projection.id, offset)
           )
         }

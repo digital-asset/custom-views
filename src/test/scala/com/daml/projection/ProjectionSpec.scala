@@ -177,7 +177,7 @@ class ProjectionSpec
         import envelope._
         val actingParties = event.actingParties.mkString(",")
         val witnessParties = event.witnessParties.mkString(",")
-        List(ExecuteUpdate(s"""insert into ${table.name}
+        List(ExecuteUpdate(s"""insert into ${exercisedEventsProjectionTable.name}
           (contract_id, event_id, acting_parties, witness_parties, event_offset)
           values (:cid, :ap, :wp, :eid, :o)""")
           .bind("cid", event.contractId)
@@ -336,7 +336,7 @@ class ProjectionSpec
         import envelope._
         val actingParties = event.actingParties.mkString(",")
         val witnessParties = event.witnessParties.mkString(",")
-        List(ExecuteUpdate(s"""insert into ${table.name}
+        List(ExecuteUpdate(s"""insert into ${exercisedEventsProjectionTable.name}
           (contract_id, event_id, acting_parties, witness_parties, event_offset)
           values (:cid, :ap, :wp, :eid, :o)""")
           .bind("cid", event.contractId)
@@ -437,7 +437,8 @@ class ProjectionSpec
         import envelope._
         val c = event
         val witnessParties = c.event.witnessParties.mkString(",")
-        List(ExecuteUpdate(s"""insert into ${table.name} (contract_id, event_id, witness_parties, amount, currency)
+        List(ExecuteUpdate(
+          s"""insert into ${iousProjectionTable.name} (contract_id, event_id, witness_parties, amount, currency)
       values (:cid, :eid, :wp, :a, :c)""")
           .bind("cid", c.iou.id.contractId)
           .bind("eid", c.event.eventId)
@@ -500,7 +501,8 @@ class ProjectionSpec
     val witnessParties = event.witnessParties.mkString(",")
     val iou = toIou(event)
 
-    List(ExecuteUpdate(s"""insert into ${table.name} (contract_id, event_id, witness_parties, amount, currency)
+    List(ExecuteUpdate(
+      s"""insert into ${iousProjectionTable.name} (contract_id, event_id, witness_parties, amount, currency)
       values (?, ?, ?, ?, ?)""")
       .bind(1, event.contractId)
       .bind(2, event.eventId)

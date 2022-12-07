@@ -2,9 +2,6 @@
 CREATE TABLE ${projection_table_name}
 (
   "id"                TEXT        NOT NULL,
-  "projection_table"  TEXT        NOT NULL,
-  "data"              JSON        NOT NULL,
-  "projection_type"   TEXT        NOT NULL,
   "projection_offset" TEXT        NULL
 );
 

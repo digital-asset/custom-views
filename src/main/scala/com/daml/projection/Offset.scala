@@ -4,8 +4,6 @@
 package com.daml.projection
 
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
-import io.circe._
-import io.circe.generic.semiauto._
 
 /**
  * Creates [[Offset]]s
@@ -17,8 +15,6 @@ object Offset {
   private def mkProtoOffset(offset: Offset) = LedgerOffset(
     LedgerOffset.Value.Absolute(offset.value)
   )
-  implicit val `offset decoder`: Decoder[Offset] = deriveDecoder[Offset]
-  implicit val `offset encoder`: Encoder[Offset] = deriveEncoder[Offset]
 }
 
 /**

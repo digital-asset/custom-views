@@ -13,9 +13,7 @@ import com.daml.quickstart.iou.iou.Iou;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 
-import java.io.PrintWriter;
 import java.util.List;
-import java.util.Properties;
 import java.util.Set;
 
 /*
@@ -45,7 +43,7 @@ public class JavaApiExample {
       // A projection is automatically updated and resumed, if it is found in the projection table.
       // if bad data is encountered, the projection does not continue.
       var events =
-          Projection.<Event>create(new ProjectionId("iou-projection-for-party"), ProjectionFilter.parties(Set.of(partyId)), projectionTable)
+          Projection.<Event>create(new ProjectionId("iou-projection-for-party"), ProjectionFilter.parties(Set.of(partyId)))
               .withBatchSize(batchSize);
       Project<Event, JdbcAction> f =
           envelope -> {
@@ -55,7 +53,7 @@ public class JavaApiExample {
               var action =
                   ExecuteUpdate.create(
                           "insert into "
-                              + envelope.getProjectionTable().getName()
+                              + projectionTable.getName()
                               + "(contract_id, event_id, amount, currency) "
                               + "values (?, ?, ?, ?)")
                       .bind(1, event.getContractId())
@@ -67,7 +65,7 @@ public class JavaApiExample {
               var action =
                   ExecuteUpdate.create(
                           "delete from " +
-                              envelope.getProjectionTable().getName() +
+                              projectionTable.getName() +
                               " where contract_id = ?"
                       )
                       .bind(1, event.getContractId());
@@ -80,13 +78,13 @@ public class JavaApiExample {
       var control = projector.project(source, events, f);
       control.cancel();
 
-      var contracts = Projection.<Iou.Contract>create(new ProjectionId("id"), ProjectionFilter.parties(Set.of(partyId)), projectionTable);
+      var contracts = Projection.<Iou.Contract>create(new ProjectionId("id"), ProjectionFilter.parties(Set.of(partyId)));
       Project<Iou.Contract, JdbcAction> fc =
           envelope -> {
             var iou = envelope.getEvent();
             var action = ExecuteUpdate.create(
                     "insert into "
-                        + envelope.getProjectionTable().getName()
+                        + projectionTable.getName()
                         + "(contract_id, event_id, amount, currency) "
                         + "values (?, ?, ?, ?)")
                 .bind(1, iou.id.contractId)

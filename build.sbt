@@ -38,7 +38,6 @@ pomExtra := <developers>
 val AkkaVersion = "2.6.20"
 val ScalaTestVersion = "3.2.12"
 val DoobieVersion = "1.0.0-RC2"
-val circeVersion = "0.14.1"
 
 val DamlVersion = "2.5.0-snapshot.20221120.10983.0.218a6a8a"
 
@@ -46,9 +45,6 @@ val deps = Seq(
   "com.daml" % "bindings-java" % DamlVersion,
   "com.typesafe.akka" %% "akka-stream" % AkkaVersion,
   "com.typesafe.akka" %% "akka-discovery" % AkkaVersion,
-  "io.circe" %% "circe-core" % circeVersion,
-  "io.circe" %% "circe-generic" % circeVersion,
-  "io.circe" %% "circe-parser" % circeVersion,
   "org.flywaydb" % "flyway-core" % "8.5.11",
   "com.typesafe.scala-logging" %% "scala-logging" % "3.9.4",
   "com.zaxxer" % "HikariCP" % "5.0.1" % Test,
@@ -63,7 +59,6 @@ val deps = Seq(
   "org.tpolecat" %% "doobie-postgres" % DoobieVersion % Test,
   "org.tpolecat" %% "doobie-core" % DoobieVersion % Test,
   "org.tpolecat" %% "doobie-hikari" % DoobieVersion % Test,
-  "org.tpolecat" %% "doobie-postgres-circe" % DoobieVersion % Test,
   "com.daml" % "bindings-rxjava" % DamlVersion % Test,
   ("com.daml" %% "sandbox-on-x" % DamlVersion % Test).exclude("org.slf4j", "slf4j-api")
 )

@@ -97,15 +97,9 @@ object JdbcProjector {
           s"""
           | insert into $projectionTableName(
           |   id,
-          |   projection_table,
-          |   data,
-          |   projection_type,
           |   projection_offset
           | )
           | values (
-          |   ?,
-          |   ?,
-          |   ?::jsonb,
           |   ?,
           |   NULL
           | )
@@ -114,10 +108,7 @@ object JdbcProjector {
         val insertIfNotExists = HandleError(
           ExecuteUpdate
             .create(sql)
-            .bind(1, projection.id.value)
-            .bind(2, projection.table.name)
-            .bind(3, "{}")
-            .bind(4, projection.getClass.getName),
+            .bind(1, projection.id.value),
           // rollback automatically starts a new tx
           _ => Rollback
         )
