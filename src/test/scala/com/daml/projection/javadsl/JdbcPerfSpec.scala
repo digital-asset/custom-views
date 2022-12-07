@@ -10,8 +10,7 @@ import akka.stream.scaladsl.Source
 import akka.testkit.TestKit
 import com.daml.ledger.api.v1.event.ExercisedEvent
 import com.daml.ledger.api.v1.value.Identifier
-import com.daml.ledger.javaapi.data.{ Identifier => JIdentifier }
-import com.daml.projection.scaladsl.Projector
+import com.daml.projection.scaladsl.{ BatchSource => SBatchSource, Projector }
 import org.scalatest._
 import org.scalatest.wordspec._
 import org.scalatest.matchers.must._
@@ -19,11 +18,7 @@ import org.scalatest.matchers.must._
 import scala.concurrent.Await
 import scala.concurrent.duration._
 import scala.jdk.CollectionConverters._
-import scala.jdk.FunctionConverters._
 import scala.jdk.FutureConverters._
-import scala.jdk.OptionConverters._
-
-import java.util.{ Set => JSet }
 
 class JdbcPerfSpec
     extends TestKit(ActorSystem("PerfSpec"))
@@ -100,13 +95,12 @@ class JdbcPerfSpec
         )).asJava
       }
 
-      val templateIdFromEvent = { e: ExercisedEvent =>
-        e.templateId.map(i => JIdentifier.fromProto(Identifier.toJavaProto(i))).toJava
-      }.asJava
-      val partySetFromEvent = { e: ExercisedEvent => JSet.copyOf(e.witnessParties.asJava) }.asJava
-
       val batchSource =
-        BatchSource.create(source.via(Batcher(nrEventsPerTx, 1.second)).asJava, templateIdFromEvent, partySetFromEvent)
+        BatchSource.create(
+          source.via(Batcher(nrEventsPerTx, 1.second)).asJava,
+          SBatchSource.GetContractTypeId.fromExercisedEvent.toJava,
+          SBatchSource.GetParties.fromExercisedEvent.toJava
+        )
       val start = System.currentTimeMillis
       println("Starting projection.")
 

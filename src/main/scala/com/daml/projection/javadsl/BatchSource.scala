@@ -156,6 +156,10 @@ object BatchSource {
     implicit val `from archived event`: GetContractTypeId[J.ArchivedEvent] = fromArchivedEvent
     def fromArchivedEvent: GetContractTypeId[J.ArchivedEvent] =
       (archivedEvent: J.ArchivedEvent) => Optional.of(archivedEvent.getTemplateId)
+
+    implicit val `from exercised event`: GetContractTypeId[J.ExercisedEvent] = fromExercisedEvent
+    def fromExercisedEvent: GetContractTypeId[J.ExercisedEvent] =
+      (exercisedEvent: J.ExercisedEvent) => Optional.of(exercisedEvent.getTemplateId)
   }
 
   @FunctionalInterface
@@ -178,5 +182,9 @@ object BatchSource {
     implicit val `from archived event`: GetParties[J.ArchivedEvent] = fromArchivedEvent
     def fromArchivedEvent: GetParties[J.ArchivedEvent] =
       (archivedEvent: J.ArchivedEvent) => ju.Set.copyOf(archivedEvent.getWitnessParties)
+
+    implicit val `from exercised event`: GetParties[J.ExercisedEvent] = fromExercisedEvent
+    def fromExercisedEvent: GetParties[J.ExercisedEvent] =
+      (exercisedEvent: J.ExercisedEvent) => ju.Set.copyOf(exercisedEvent.getWitnessParties)
   }
 }
