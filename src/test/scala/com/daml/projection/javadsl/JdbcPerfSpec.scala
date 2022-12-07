@@ -21,7 +21,7 @@ import scala.concurrent.duration._
 import scala.jdk.CollectionConverters._
 import scala.jdk.FunctionConverters._
 import scala.jdk.FutureConverters._
-import scala.compat.java8.OptionConverters
+import scala.jdk.OptionConverters._
 
 import java.util.{ Set => JSet }
 
@@ -101,7 +101,7 @@ class JdbcPerfSpec
       }
 
       val templateIdFromEvent = { e: ExercisedEvent =>
-        OptionConverters.toJava(e.templateId.map(i => JIdentifier.fromProto(Identifier.toJavaProto(i))))
+        e.templateId.map(i => JIdentifier.fromProto(Identifier.toJavaProto(i))).toJava
       }.asJava
       val partySetFromEvent = { e: ExercisedEvent => JSet.copyOf(e.witnessParties.asJava) }.asJava
 

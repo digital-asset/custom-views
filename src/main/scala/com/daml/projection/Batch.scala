@@ -3,7 +3,7 @@
 
 package com.daml.projection
 
-import scala.compat.java8.OptionConverters
+import scala.jdk.OptionConverters._
 import scala.jdk.CollectionConverters._
 
 /**
@@ -78,7 +78,7 @@ final case class Batch[E](
   /**
    * Java API
    */
-  def getBoundary(): java.util.Optional[TxBoundary[E]] = OptionConverters.toJava(boundary)
+  def getBoundary(): java.util.Optional[TxBoundary[E]] = boundary.toJava
 
   /**
    * Java API

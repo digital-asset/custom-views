@@ -4,7 +4,7 @@
 package com.daml.projection
 
 import java.time.Instant
-import scala.compat.java8.OptionConverters
+import scala.jdk.OptionConverters._
 
 /**
  * A record consumed from the ledger of type `T`: an event, or a type derived from events
@@ -58,10 +58,10 @@ object Envelope {
       table: ProjectionTable
   ) = Envelope(
     event,
-    OptionConverters.toScala(workflowId),
-    OptionConverters.toScala(ledgerEffectiveTime),
-    OptionConverters.toScala(transactionId),
-    OptionConverters.toScala(offset),
+    workflowId.toScala,
+    ledgerEffectiveTime.toScala,
+    transactionId.toScala,
+    offset.toScala,
     table
   )
 }
@@ -109,21 +109,21 @@ final case class Envelope[T](
    *
    * Gets the ledgerEffectiveTime
    */
-  def getLedgerEffectiveTime(): java.util.Optional[Instant] = OptionConverters.toJava(ledgerEffectiveTime)
+  def getLedgerEffectiveTime(): java.util.Optional[Instant] = ledgerEffectiveTime.toJava
 
   /**
    * Java API
    *
    * Gets the transactionId
    */
-  def getTransactionId(): java.util.Optional[String] = OptionConverters.toJava(transactionId)
+  def getTransactionId(): java.util.Optional[String] = transactionId.toJava
 
   /**
    * Java API
    *
    * Gets the [[Offset]]
    */
-  def getOffset(): java.util.Optional[Offset] = OptionConverters.toJava(offset)
+  def getOffset(): java.util.Optional[Offset] = offset.toJava
 
   /**
    * Java API

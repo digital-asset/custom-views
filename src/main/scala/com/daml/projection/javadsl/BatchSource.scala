@@ -18,8 +18,8 @@ import com.daml.ledger.javaapi.data.{ Identifier => JIdentifier }
 import com.daml.projection.scaladsl.BatchSource.{ GetContractTypeId, GetParties }
 
 import java.{ util => ju }
-import scala.compat.java8.OptionConverters
 import scala.jdk.CollectionConverters._
+import scala.jdk.OptionConverters._
 
 /**
  * A Source of [[Batch]]s.
@@ -138,7 +138,7 @@ object BatchSource {
   private def toGetContractTypeId[E](
       contractTypeIdFromEvent: java.util.function.Function[E, ju.Optional[JIdentifier]]): GetContractTypeId[E] =
     (event: E) =>
-      OptionConverters.toScala(contractTypeIdFromEvent.apply(event)).map(i => Identifier.fromJavaProto(i.toProto))
+      contractTypeIdFromEvent.apply(event).toScala.map(i => Identifier.fromJavaProto(i.toProto))
 
   private def toGetParties[E](partiesFromEvent: java.util.function.Function[E, ju.Set[String]]): GetParties[E] =
     (event: E) => partiesFromEvent.apply(event).asScala.toSet
