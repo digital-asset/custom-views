@@ -39,23 +39,17 @@ object BatchSource {
 
   object GetContractTypeId {
     implicit val `from event`: GetContractTypeId[Event] = fromEvent
-    def fromEvent: GetContractTypeId[Event] = new GetContractTypeId[Event] {
-      override def fromEvent(event: Event): Option[Identifier] = event match {
-        case Event(Created(createdEvent))   => Some(createdEvent.getTemplateId)
-        case Event(Archived(archivedEvent)) => Some(archivedEvent.getTemplateId)
-        case Event(Empty)                   => None
-      }
+    def fromEvent: GetContractTypeId[Event] = {
+      case Event(Created(createdEvent))   => Some(createdEvent.getTemplateId)
+      case Event(Archived(archivedEvent)) => Some(archivedEvent.getTemplateId)
+      case Event(Empty)                   => None
     }
 
     implicit val `from created event`: GetContractTypeId[CreatedEvent] = fromCreatedEvent
-    def fromCreatedEvent: GetContractTypeId[CreatedEvent] = new GetContractTypeId[CreatedEvent] {
-      override def fromEvent(createdEvent: CreatedEvent): Option[Identifier] = createdEvent.templateId
-    }
+    def fromCreatedEvent: GetContractTypeId[CreatedEvent] = (createdEvent: CreatedEvent) => createdEvent.templateId
 
     implicit val `from archived event`: GetContractTypeId[ArchivedEvent] = fromArchivedEvent
-    def fromArchivedEvent: GetContractTypeId[ArchivedEvent] = new GetContractTypeId[ArchivedEvent] {
-      override def fromEvent(archivedEvent: ArchivedEvent): Option[Identifier] = archivedEvent.templateId
-    }
+    def fromArchivedEvent: GetContractTypeId[ArchivedEvent] = (archivedEvent: ArchivedEvent) => archivedEvent.templateId
   }
 
   @FunctionalInterface
