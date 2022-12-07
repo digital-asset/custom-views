@@ -82,7 +82,7 @@ class FacadeSpec
           "contract_id",
           event.contractId))
       }
-      val f = Projection.fromCreateOrArchive(insert, delete)
+      val f = Projection.fromCreatedOrArchived(insert, delete)
       implicit val source = BatchSource.events(clientSettings)
       val ctrl = Projection.project(source, events)(f)
       ctrl.cancel().map(_ mustBe Done)

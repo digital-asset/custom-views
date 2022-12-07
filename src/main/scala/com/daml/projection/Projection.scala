@@ -197,7 +197,7 @@ object Projection extends {
       projection: Projection[Event],
       fc: Project[CreatedEvent, A],
       fa: Project[ArchivedEvent, A])(implicit sys: ActorSystem): scaladsl.Control =
-    project(batchSource, projection)(Projection.fromCreateOrArchive(fc, fa))
+    project(batchSource, projection)(Projection.fromCreatedOrArchived(fc, fa))
 
   private def run[A: Projector](source: Source[A, scaladsl.Control])(implicit sys: ActorSystem): scaladsl.Control = {
     source.viaMat(implicitly[Projector[A]].flow) { (sourceControl, projectorResource) =>
@@ -226,10 +226,10 @@ object Projection extends {
   }
 
   /**
-   * creates an `Event` Project function from a `CreatedEvent` [[Project]] function and a a `ArchivedEvent` [[Project]]
+   * creates an `Event` Project function from a `CreatedEvent` [[Project]] function and an `ArchivedEvent` [[Project]]
    * function
    */
-  def fromCreateOrArchive[A](
+  def fromCreatedOrArchived[A](
       fc: Project[CreatedEvent, A],
       fa: Project[ArchivedEvent, A]): Project[Event, A] = envelope => {
     val res = envelope.event.event match {
