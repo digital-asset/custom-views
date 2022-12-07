@@ -14,9 +14,9 @@ import com.daml.ledger.api.v1.{ event => SE }
 import com.daml.ledger.api.v1.event.Event.Event.{ Created => SCreated }
 import com.daml.ledger.api.v1.value.Identifier
 import com.daml.ledger.api.v1.{ transaction => ST }
-import com.daml.ledger.javaapi.data.{ Identifier => JIdentifier }
-import com.daml.projection.scaladsl.BatchSource.{ GetContractTypeId, GetParties }
+import com.daml.projection.scaladsl.BatchSource.{ GetContractTypeId => SGetContractTypeId, GetParties => SGetParties }
 
+import java.util.Optional
 import java.{ util => ju }
 import scala.jdk.CollectionConverters._
 import scala.jdk.OptionConverters._
@@ -40,33 +40,33 @@ object BatchSource {
    */
   def create[E](
       batches: java.lang.Iterable[Batch[E]],
-      contractTypeIdFromEvent: java.util.function.Function[E, ju.Optional[JIdentifier]],
-      partiesFromEvent: java.util.function.Function[E, ju.Set[String]]): BatchSource[E] =
+      contractTypeIdFromEvent: GetContractTypeId[E],
+      partiesFromEvent: GetParties[E]): BatchSource[E] =
     S.BatchSource(batches.asScala.toList)(
-      toGetContractTypeId(contractTypeIdFromEvent),
-      toGetParties(partiesFromEvent)).toJava
+      contractTypeIdFromEvent.toScala,
+      partiesFromEvent.toScala).toJava
 
   /**
    * Creates a [[BatchSource]] from existing batches from an akka.stream.javadsl.Source, useful for testing purposes.
    */
   def create[E](
       source: Source[Batch[E], NotUsed],
-      contractTypeIdFromEvent: java.util.function.Function[E, ju.Optional[JIdentifier]],
-      partiesFromEvent: java.util.function.Function[E, ju.Set[String]]) =
+      contractTypeIdFromEvent: GetContractTypeId[E],
+      partiesFromEvent: GetParties[E]): BatchSource[E] =
     S.BatchSource(source.asScala)(
-      toGetContractTypeId(contractTypeIdFromEvent),
-      toGetParties(partiesFromEvent)).toJava
+      contractTypeIdFromEvent.toScala,
+      partiesFromEvent.toScala).toJava
 
   /**
    * Creates a [[BatchSource]] from existing consumer records, useful for testing purposes.
    */
   def createFromRecords[E](
       records: java.lang.Iterable[ConsumerRecord[E]],
-      contractTypeIdFromEvent: java.util.function.Function[E, ju.Optional[JIdentifier]],
-      partiesFromEvent: java.util.function.Function[E, ju.Set[String]]): BatchSource[E] =
+      contractTypeIdFromEvent: GetContractTypeId[E],
+      partiesFromEvent: GetParties[E]): BatchSource[E] =
     S.BatchSource.fromRecords(records.asScala.toList)(
-      toGetContractTypeId(contractTypeIdFromEvent),
-      toGetParties(partiesFromEvent)).toJava
+      contractTypeIdFromEvent.toScala,
+      partiesFromEvent.toScala).toJava
 
   /**
    * Creates a [[BatchSource]] from a function that transforms CreatedEvent`s into `Ct`s.
@@ -135,12 +135,48 @@ object BatchSource {
     }
   }.toJava
 
-  private def toGetContractTypeId[E](
-      contractTypeIdFromEvent: java.util.function.Function[E, ju.Optional[JIdentifier]]): GetContractTypeId[E] =
-    (event: E) =>
-      contractTypeIdFromEvent.apply(event).toScala.map(i => Identifier.fromJavaProto(i.toProto))
+  @FunctionalInterface
+  trait GetContractTypeId[E] {
+    def fromEvent(event: E): ju.Optional[J.Identifier]
+    def toScala: SGetContractTypeId[E] = (event: E) =>
+      fromEvent(event).toScala.map(i => Identifier.fromJavaProto(i.toProto))
+  }
 
-  private def toGetParties[E](partiesFromEvent: java.util.function.Function[E, ju.Set[String]]): GetParties[E] =
-    (event: E) => partiesFromEvent.apply(event).asScala.toSet
+  object GetContractTypeId {
+    implicit val `from event`: GetContractTypeId[J.Event] = fromEvent
+    def fromEvent: GetContractTypeId[J.Event] = (event: J.Event) => {
+      val se = SE.Event.fromJavaProto(event.toProtoEvent)
+      SGetContractTypeId.fromEvent.toJava.fromEvent(se)
+    }
 
+    implicit val `from created event`: GetContractTypeId[J.CreatedEvent] = fromCreatedEvent
+    def fromCreatedEvent: GetContractTypeId[J.CreatedEvent] =
+      (createdEvent: J.CreatedEvent) => Optional.of(createdEvent.getTemplateId)
+
+    implicit val `from archived event`: GetContractTypeId[J.ArchivedEvent] = fromArchivedEvent
+    def fromArchivedEvent: GetContractTypeId[J.ArchivedEvent] =
+      (archivedEvent: J.ArchivedEvent) => Optional.of(archivedEvent.getTemplateId)
+  }
+
+  @FunctionalInterface
+  trait GetParties[E] {
+    def fromEvent(event: E): ju.Set[String]
+    def toScala: SGetParties[E] = (event: E) => fromEvent(event).asScala.toSet
+  }
+
+  object GetParties {
+    implicit val `from event`: GetParties[J.Event] = fromEvent
+    def fromEvent: GetParties[J.Event] = (event: J.Event) => {
+      val se = SE.Event.fromJavaProto(event.toProtoEvent)
+      SGetParties.fromEvent.toJava.fromEvent(se)
+    }
+
+    implicit val `from created event`: GetParties[J.CreatedEvent] = fromCreatedEvent
+    def fromCreatedEvent: GetParties[J.CreatedEvent] =
+      (createdEvent: J.CreatedEvent) => ju.Set.copyOf(createdEvent.getWitnessParties)
+
+    implicit val `from archived event`: GetParties[J.ArchivedEvent] = fromArchivedEvent
+    def fromArchivedEvent: GetParties[J.ArchivedEvent] =
+      (archivedEvent: J.ArchivedEvent) => ju.Set.copyOf(archivedEvent.getWitnessParties)
+  }
 }

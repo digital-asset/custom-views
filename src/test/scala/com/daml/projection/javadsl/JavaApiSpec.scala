@@ -19,7 +19,7 @@ import org.scalatest.wordspec._
 import org.scalatest.concurrent.Eventually.eventually
 
 import java.sql.SQLException
-import java.util.{ List => JList, Optional, Set => JSet }
+import java.util.{ List => JList }
 import scala.jdk.CollectionConverters._
 import scala.jdk.FunctionConverters._
 import scala.jdk.FutureConverters._
@@ -45,9 +45,6 @@ class JavaApiSpec
     TestKit.shutdownActorSystem(system)
   }
 
-  val templateIdFromEvent = { e: Event => Optional.of(e.getTemplateId()) }.asJava
-  val partySetFromEvent = { e: Event => JSet.copyOf(e.getWitnessParties()) }.asJava
-
   "Java API for projections" must {
     "project from a test batch source" in {
       val alice = uniqueParty("Alice")
@@ -61,7 +58,10 @@ class JavaApiSpec
         offsets.map(o => mkEnvelope(o, mkIou(o, alice, alice), JList.of(alice))).asJava,
         TxBoundary.create[Event](projectionId, offsets.last)
       )
-      val batchSource = BatchSource.create(JList.of(batch), templateIdFromEvent, partySetFromEvent)
+      val batchSource = BatchSource.create(
+        JList.of(batch),
+        BatchSource.GetContractTypeId.fromEvent,
+        BatchSource.GetParties.fromEvent)
       val projector = JdbcProjector.create(ds, system)
 
       val projection = Projection.create[Event](
@@ -569,7 +569,10 @@ class JavaApiSpec
           )
         }
       }
-      val batchSource = BatchSource.create(batches.asJava, templateIdFromEvent, partySetFromEvent)
+      val batchSource = BatchSource.create(
+        batches.asJava,
+        BatchSource.GetContractTypeId.fromEvent,
+        BatchSource.GetParties.fromEvent)
       val projector = JdbcProjector.create(ds, system)
 
       val projection = Projection.create[Event](

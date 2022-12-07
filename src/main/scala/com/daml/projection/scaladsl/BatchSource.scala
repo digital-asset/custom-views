@@ -7,16 +7,21 @@ import akka.{ Done, NotUsed }
 import akka.actor.ActorSystem
 import akka.grpc.GrpcClientSettings
 import akka.stream.scaladsl.{ Flow, Keep, Sink, Source }
-import com.daml.ledger.api.v1.event.{ ArchivedEvent, CreatedEvent, Event }
+import com.daml.ledger.api.v1.event.{ ArchivedEvent, CreatedEvent, Event, ExercisedEvent }
 import com.daml.ledger.api.v1.event.Event.Event.{ Archived, Created, Empty }
 import com.daml.ledger.api.v1.transaction_filter.TransactionFilter
 import com.daml.ledger.api.v1.{ event => SE }
 import com.daml.ledger.api.v1.{ transaction => ST }
 import com.daml.ledger.api.v1.{ transaction_filter => SF }
 import com.daml.ledger.api.v1.value.Identifier
+import com.daml.ledger.api.v1.value.Identifier.toJavaProto
+import com.daml.ledger.javaapi.{ data => J }
 import com.daml.projection.{ javadsl, Batch, Batcher, ConsumerRecord, Envelope, Projection }
+import com.daml.projection.javadsl.BatchSource.{ GetContractTypeId => JGetContractTypeId, GetParties => JGetParties }
 
 import scala.concurrent.{ Future, Promise }
+import scala.jdk.CollectionConverters._
+import scala.jdk.OptionConverters._
 
 /**
  * A Source of [[Batch]]s.
@@ -31,52 +36,6 @@ trait BatchSource[E] {
 }
 
 object BatchSource {
-
-  @FunctionalInterface
-  trait GetContractTypeId[E] {
-    def fromEvent(event: E): Option[Identifier]
-  }
-
-  object GetContractTypeId {
-    implicit val `from event`: GetContractTypeId[Event] = fromEvent
-    def fromEvent: GetContractTypeId[Event] = {
-      case Event(Created(createdEvent))   => Some(createdEvent.getTemplateId)
-      case Event(Archived(archivedEvent)) => Some(archivedEvent.getTemplateId)
-      case Event(Empty)                   => None
-    }
-
-    implicit val `from created event`: GetContractTypeId[CreatedEvent] = fromCreatedEvent
-    def fromCreatedEvent: GetContractTypeId[CreatedEvent] = (createdEvent: CreatedEvent) => createdEvent.templateId
-
-    implicit val `from archived event`: GetContractTypeId[ArchivedEvent] = fromArchivedEvent
-    def fromArchivedEvent: GetContractTypeId[ArchivedEvent] = (archivedEvent: ArchivedEvent) => archivedEvent.templateId
-  }
-
-  @FunctionalInterface
-  trait GetParties[E] {
-    def fromEvent(event: E): Set[String]
-  }
-
-  object GetParties {
-    implicit val `from event`: GetParties[Event] = fromEvent
-    def fromEvent: GetParties[Event] = new GetParties[Event] {
-      override def fromEvent(event: Event): Set[String] = event match {
-        case Event(Created(createdEvent))   => createdEvent.witnessParties.toSet
-        case Event(Archived(archivedEvent)) => archivedEvent.witnessParties.toSet
-        case Event(Empty)                   => Set.empty
-      }
-    }
-
-    implicit val `from created event`: GetParties[CreatedEvent] = fromCreatedEvent
-    def fromCreatedEvent: GetParties[CreatedEvent] = new GetParties[CreatedEvent] {
-      override def fromEvent(createdEvent: CreatedEvent): Set[String] = createdEvent.witnessParties.toSet
-    }
-
-    implicit val `from archived event`: GetParties[ArchivedEvent] = fromArchivedEvent
-    def fromArchivedEvent: GetParties[ArchivedEvent] = new GetParties[ArchivedEvent] {
-      override def fromEvent(archivedEvent: ArchivedEvent): Set[String] = archivedEvent.witnessParties.toSet
-    }
-  }
 
   // TODO add a create method to create a source from protobuf files https://github.com/digital-asset/daml/issues/15659
   def apply[E: GetContractTypeId: GetParties](batches: Seq[Batch[E]]): BatchSource[E] =
@@ -245,5 +204,60 @@ object BatchSource {
       val updatedProjection = convertTemplateIdFilterToPredicate(projection, templateIdFilter)
       Consumer.treeEventSource(clientSettings, updatedProjection)
     }
+  }
+
+  @FunctionalInterface
+  trait GetContractTypeId[E] {
+    def fromEvent(event: E): Option[Identifier]
+
+    def toJava: JGetContractTypeId[E] = (event: E) =>
+      fromEvent(event).map(i => J.Identifier.fromProto(toJavaProto(i))).toJava
+  }
+
+  object GetContractTypeId {
+    implicit val `from event`: GetContractTypeId[Event] = fromEvent
+    def fromEvent: GetContractTypeId[Event] = {
+      case Event(Created(createdEvent))   => Some(createdEvent.getTemplateId)
+      case Event(Archived(archivedEvent)) => Some(archivedEvent.getTemplateId)
+      case Event(Empty)                   => None
+    }
+
+    implicit val `from created event`: GetContractTypeId[CreatedEvent] = fromCreatedEvent
+    def fromCreatedEvent: GetContractTypeId[CreatedEvent] = (createdEvent: CreatedEvent) => createdEvent.templateId
+
+    implicit val `from archived event`: GetContractTypeId[ArchivedEvent] = fromArchivedEvent
+    def fromArchivedEvent: GetContractTypeId[ArchivedEvent] = (archivedEvent: ArchivedEvent) => archivedEvent.templateId
+
+    implicit val `from exercised event`: GetContractTypeId[ExercisedEvent] = fromExercisedEvent
+    def fromExercisedEvent: GetContractTypeId[ExercisedEvent] =
+      (exercisedEvent: ExercisedEvent) => exercisedEvent.templateId
+  }
+
+  @FunctionalInterface
+  trait GetParties[E] {
+    def fromEvent(event: E): Set[String]
+
+    def toJava: JGetParties[E] = (event: E) =>
+      fromEvent(event).asJava
+  }
+
+  object GetParties {
+    implicit val `from event`: GetParties[Event] = fromEvent
+    def fromEvent: GetParties[Event] = {
+      case Event(Created(createdEvent))   => createdEvent.witnessParties.toSet
+      case Event(Archived(archivedEvent)) => archivedEvent.witnessParties.toSet
+      case Event(Empty)                   => Set.empty
+    }
+
+    implicit val `from created event`: GetParties[CreatedEvent] = fromCreatedEvent
+    def fromCreatedEvent: GetParties[CreatedEvent] = (createdEvent: CreatedEvent) => createdEvent.witnessParties.toSet
+
+    implicit val `from archived event`: GetParties[ArchivedEvent] = fromArchivedEvent
+    def fromArchivedEvent: GetParties[ArchivedEvent] =
+      (archivedEvent: ArchivedEvent) => archivedEvent.witnessParties.toSet
+
+    implicit val `from exercised event`: GetParties[ExercisedEvent] = fromExercisedEvent
+    def fromExercisedEvent: GetParties[ExercisedEvent] =
+      (exercisedEvent: ExercisedEvent) => exercisedEvent.witnessParties.toSet
   }
 }
