@@ -144,7 +144,7 @@ object BatchSource {
 
   object GetContractTypeId {
     implicit val `from event`: GetContractTypeId[J.Event] = fromEvent
-    def fromEvent: GetContractTypeId[J.Event] = (event: J.Event) => {
+    def fromEvent(): GetContractTypeId[J.Event] = (event: J.Event) => {
       val se = SE.Event.fromJavaProto(event.toProtoEvent)
       SGetContractTypeId.fromEvent.toJava.fromEvent(se)
     }
