@@ -10,7 +10,7 @@ import akka.stream.scaladsl.Source
 import akka.testkit.TestKit
 import com.daml.ledger.api.v1.event.ExercisedEvent
 import com.daml.ledger.api.v1.value.Identifier
-import com.daml.projection.scaladsl.Projector
+import com.daml.projection.scaladsl.{ BatchSource => SBatchSource, Projector }
 import org.scalatest._
 import org.scalatest.wordspec._
 import org.scalatest.matchers.must._
@@ -95,7 +95,12 @@ class JdbcPerfSpec
         )).asJava
       }
 
-      val batchSource = BatchSource.create(source.via(Batcher(nrEventsPerTx, 1.second)).asJava)
+      val batchSource =
+        BatchSource.create(
+          source.via(Batcher(nrEventsPerTx, 1.second)).asJava,
+          SBatchSource.GetContractTypeId.fromExercisedEvent.toJava,
+          SBatchSource.GetParties.fromExercisedEvent.toJava
+        )
       val start = System.currentTimeMillis
       println("Starting projection.")
 

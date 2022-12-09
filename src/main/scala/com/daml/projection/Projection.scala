@@ -13,8 +13,8 @@ import com.daml.ledger.javaapi.data.{ TransactionFilter => JTransactionFilter }
 import com.daml.projection.Projection.Predicate
 import scaladsl.Projector
 
-import scala.compat.java8.OptionConverters
 import scala.jdk.FunctionConverters._
+import scala.jdk.OptionConverters._
 
 /**
  * A Projection is a resumable and persistent ledger query. The progress of a Projection is stored in the `projection`
@@ -78,7 +78,7 @@ trait Projection[E] {
    *
    * Returns the offset where this projection is reading from the ledger. None means read from the beginning
    */
-  def getOffset(): java.util.Optional[Offset] = OptionConverters.toJava(offset)
+  def getOffset(): java.util.Optional[Offset] = offset.toJava
 
   /**
    * Java API

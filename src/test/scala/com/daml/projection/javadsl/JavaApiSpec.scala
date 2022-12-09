@@ -44,6 +44,7 @@ class JavaApiSpec
     super.afterAll()
     TestKit.shutdownActorSystem(system)
   }
+
   "Java API for projections" must {
     "project from a test batch source" in {
       val alice = uniqueParty("Alice")
@@ -54,10 +55,13 @@ class JavaApiSpec
       val offsets = (0 until size).map(i => Offset(f"$i%07d"))
 
       val batch = Batch.create(
-        offsets.map(o => mkEnvelope(o, mkIou(o, alice, alice))).asJava,
+        offsets.map(o => mkEnvelope(o, mkIou(o, alice, alice), JList.of(alice))).asJava,
         TxBoundary.create[Event](projectionId, offsets.last)
       )
-      val batchSource = BatchSource.create(JList.of(batch))
+      val batchSource = BatchSource.create(
+        JList.of(batch),
+        BatchSource.GetContractTypeId.fromEvent(),
+        BatchSource.GetParties.fromEvent())
       val projector = JdbcProjector.create(ds, system)
       val projectionTable = ProjectionTable("ious")
       val projection = Projection.create[Event](
@@ -542,16 +546,19 @@ class JavaApiSpec
         val offset = Offset(f"$i%07d")
         if (i < size / 2) {
           Batch.create(
-            List(mkEnvelope(offset, mkIou(offset, alice, alice))).asJava,
+            List(mkEnvelope(offset, mkIou(offset, alice, alice), JList.of(alice))).asJava,
             TxBoundary.create[Event](projectionId, offset)
           )
         } else {
           Batch.create(
-            List(mkEnvelope(offset, mkIou(offset, alice, alice))).asJava
+            List(mkEnvelope(offset, mkIou(offset, alice, alice), JList.of(alice))).asJava
           )
         }
       }
-      val batchSource = BatchSource.create(batches.asJava)
+      val batchSource = BatchSource.create(
+        batches.asJava,
+        BatchSource.GetContractTypeId.fromEvent(),
+        BatchSource.GetParties.fromEvent())
       val projector = JdbcProjector.create(ds, system)
       val projectionTable = ProjectionTable("ious")
       val projection = Projection.create[Event](
@@ -596,10 +603,10 @@ class JavaApiSpec
       Set(issuer, owner).asJava
     )
 
-  def mkEnvelope(offset: Offset, iou: Iou.Contract) = {
+  def mkEnvelope(offset: Offset, iou: Iou.Contract, witnessParties: JList[String]) = {
     Envelope.create[Event](
       new CreatedEvent(
-        JList.of(),
+        witnessParties,
         offset.value,
         iou.getContractTypeId,
         "contract-id",
