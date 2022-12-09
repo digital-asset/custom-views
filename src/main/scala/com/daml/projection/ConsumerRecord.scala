@@ -54,15 +54,13 @@ object Envelope {
       workflowId: java.util.Optional[String],
       ledgerEffectiveTime: java.util.Optional[Instant],
       transactionId: java.util.Optional[String],
-      offset: java.util.Optional[Offset],
-      table: ProjectionTable
+      offset: java.util.Optional[Offset]
   ) = Envelope(
     event,
     workflowId.toScala,
     ledgerEffectiveTime.toScala,
     transactionId.toScala,
-    offset.toScala,
-    table
+    offset.toScala
   )
 }
 
@@ -74,8 +72,7 @@ final case class Envelope[T](
     workflowId: Option[String],
     ledgerEffectiveTime: Option[Instant],
     transactionId: Option[String],
-    offset: Option[Offset],
-    table: ProjectionTable
+    offset: Option[Offset]
 ) extends ConsumerRecord[T] {
 
   /** Returns the wrapped value */
@@ -88,7 +85,7 @@ final case class Envelope[T](
    * Maps the event, returning an envelope with an event as the result of `f`, keeping all other fields.
    */
   def map[B](f: T => B): Envelope[B] =
-    Envelope[B](f(event), workflowId, ledgerEffectiveTime, transactionId, offset, table)
+    Envelope[B](f(event), workflowId, ledgerEffectiveTime, transactionId, offset)
 
   /**
    * applies the partial function `f` to the wrapped event, returns some envelope with the result of the function (if
@@ -124,11 +121,4 @@ final case class Envelope[T](
    * Gets the [[Offset]]
    */
   def getOffset(): java.util.Optional[Offset] = offset.toJava
-
-  /**
-   * Java API
-   *
-   * Gets the [[ProjectionTable]]
-   */
-  def getProjectionTable(): ProjectionTable = table
 }

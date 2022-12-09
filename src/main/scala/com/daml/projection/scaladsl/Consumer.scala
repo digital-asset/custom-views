@@ -22,17 +22,7 @@ import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionsResponse,
   TransactionServiceClient
 }
-import com.daml.projection.{
-  Batch,
-  Batcher,
-  ConsumerRecord,
-  Envelope,
-  Offset,
-  Projection,
-  ProjectionId,
-  ProjectionTable,
-  TxBoundary
-}
+import com.daml.projection.{ Batch, Batcher, ConsumerRecord, Envelope, Offset, Projection, ProjectionId, TxBoundary }
 import com.daml.projection.Projection._
 
 import java.time.Instant
@@ -85,7 +75,7 @@ private[projection] object Consumer extends StrictLogging {
     } else {
       logger.trace(s"Getting transactions for projection: '${projection.id}' from offset '${projection.offset}'.")
       getTransactions(txClient, projection.endOffset, projection.offset, projection.transactionFilter)
-        .via(toConsumerRecord(projection.id, projection.table, predicate))
+        .via(toConsumerRecord(projection.id, predicate))
         .via(Batcher[Event](getBatchSize(projection), getDefaultBatcherInterval()))
         .viaMat(completeActiveContractSource)(Keep.right)
     }
@@ -132,7 +122,6 @@ private[projection] object Consumer extends StrictLogging {
     treeEventSourceFromTrees(
       getTransactionTrees(client, projection.endOffset, projection.offset, projection.transactionFilter),
       projection.id,
-      projection.table,
       predicate,
       getBatchSize(projection),
       getDefaultBatcherInterval()
@@ -185,7 +174,6 @@ private[projection] object Consumer extends StrictLogging {
 
   private def toConsumerRecord(
       projectionId: ProjectionId,
-      projectionTable: ProjectionTable,
       predicate: Predicate[Event]) =
     Flow[GetTransactionsResponse].mapConcat { response =>
       response.transactions.flatMap { tx =>
@@ -201,8 +189,7 @@ private[projection] object Consumer extends StrictLogging {
             Some(workflowId),
             ledgerEffectiveTime,
             Some(transactionId),
-            Some(newProjectionOffset),
-            projectionTable
+            Some(newProjectionOffset)
           )
         }.filter(predicate)
         if (envelopes.nonEmpty) {
@@ -255,7 +242,6 @@ private[projection] object Consumer extends StrictLogging {
         val nextEvents =
           getTxFromProjection(Some(newProjectionOffset), projection.transactionFilter).via(toConsumerRecord(
             projection.id,
-            projection.table,
             predicate))
         boundary.concat(nextEvents)
       } else {
@@ -266,8 +252,7 @@ private[projection] object Consumer extends StrictLogging {
             None,
             None,
             None,
-            projection.offset,
-            projection.table
+            projection.offset
           )
         }).filter(predicate)
       }
@@ -300,7 +285,7 @@ private[projection] object Consumer extends StrictLogging {
       }
     }
 
-    treeEventSourceFromTrees(source, projection.id, projection.table, tPredicate, batchSize, interval).map {
+    treeEventSourceFromTrees(source, projection.id, tPredicate, batchSize, interval).map {
       case batch: Batch[TreeEvent] =>
         Batch(
           batch.envelopes.flatMap { e =>
@@ -315,18 +300,16 @@ private[projection] object Consumer extends StrictLogging {
   private[projection] def treeEventSourceFromTrees(
       txTreeSource: Source[GetTransactionTreesResponse, NotUsed],
       projectionId: ProjectionId,
-      table: ProjectionTable,
       predicate: Predicate[TreeEvent],
       batchSize: Int,
       interval: FiniteDuration
   ): Source[Batch[TreeEvent], NotUsed] =
-    treeEventConsumerRecordSource(txTreeSource, projectionId, table, predicate)
+    treeEventConsumerRecordSource(txTreeSource, projectionId, predicate)
       .via(Batcher(batchSize, interval))
 
   private[projection] def treeEventConsumerRecordSource(
       txTreeSource: Source[GetTransactionTreesResponse, NotUsed],
       projectionId: ProjectionId,
-      table: ProjectionTable,
       predicate: Predicate[TreeEvent]
   ): Source[ConsumerRecord[TreeEvent], NotUsed] = {
     txTreeSource
@@ -346,8 +329,7 @@ private[projection] object Consumer extends StrictLogging {
                 Some(workflowId),
                 ledgerEffectiveTime,
                 Some(transactionId),
-                Some(newProjectionOffset),
-                table
+                Some(newProjectionOffset)
               )
             if (predicate(envelope)) Some(envelope) else None
           }

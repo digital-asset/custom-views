@@ -41,13 +41,14 @@ class JdbcPerfSpec
       val nrEventsPerTx = 10000
       val generatedSize = nrTxs * nrEventsPerTx
       val lastOffset = Offset(f"offset-$nrTxs%07d")
+      val projectionTable = ProjectionTable("exercised_events")
       val projection: Projection[ExercisedEvent] = mkChoice
         .withEndOffset(lastOffset)
       projector.getOffset(projection) must be(None)
 
       println("Preparing events")
 
-      def mkEvent(ix: Int, txId: String, projection: Projection[ExercisedEvent], offset: Offset) =
+      def mkEvent(ix: Int, txId: String, offset: Offset) =
         Envelope(
           ExercisedEvent(
             eventId = "event-id-" + ix,
@@ -63,15 +64,14 @@ class JdbcPerfSpec
           None,
           None,
           Some(txId),
-          Some(offset),
-          projection.table
+          Some(offset)
         )
 
       def mkTx(tx: Int): Seq[ConsumerRecord[ExercisedEvent]] = {
         val txId = f"tx-$tx%07d"
         val offset = Offset(f"offset-$tx%07d")
         (1 to nrEventsPerTx).map { ePerTx =>
-          mkEvent(ePerTx, txId, projection, offset)
+          mkEvent(ePerTx, txId, offset)
         } ++ List(TxBoundary(projection.id, offset))
       }
 
@@ -108,7 +108,7 @@ class JdbcPerfSpec
         batchSource,
         projection,
         UpdateMany.create(
-          Sql.binder[ExercisedEventRow](s"insert into ${projection.table.name}(contract_id, event_id, acting_parties, witness_parties, event_offset) VALUES (?, ?, ?, ?, ?)")
+          Sql.binder[ExercisedEventRow](s"insert into ${projectionTable.name}(contract_id, event_id, acting_parties, witness_parties, event_offset) VALUES (?, ?, ?, ?, ?)")
             .bind(1, _.contractId)
             .bind(2, _.eventId)
             .bind(3, _.actingParties)
@@ -156,7 +156,7 @@ class JdbcPerfSpec
       val size = tableSize.split(" ")(0)
       val MB = tableSize.split(" ")(1)
       MB must be("MB")
-      println(s"${projection.table} size= $tableSize")
+      println(s"${projectionTable} size= $tableSize")
       val eventSizeK = size.toDouble * 1024 / generatedSize
       println(s"size of an event =~ ${eventSizeK}k, expecting more than ${10000d / eventSizeK} ops/sec")
       opsSec must be.>(10000d / eventSizeK)
@@ -170,16 +170,12 @@ class JdbcPerfSpec
   )
   val choice = "IouTransfer_Accept"
   val partyIdBob = "Bob::1220ca5c20e3d9e47ade773119246e250f5384765d5302d3b37d21de7e0c07fd3d55"
+  val projectionId = ProjectionId("id-1")
 
   def mkChoice = {
-    val projectionId = ProjectionId("id-1")
-
-    val projectionTable = ProjectionTable("exercised_events")
-
     Projection[ExercisedEvent](
       projectionId,
-      ProjectionFilter.parties(Set(partyIdBob)),
-      projectionTable
+      ProjectionFilter.parties(Set(partyIdBob))
     )
   }
   case class ExercisedEventRow(

@@ -63,17 +63,16 @@ class JavaApiSpec
         BatchSource.GetContractTypeId.fromEvent,
         BatchSource.GetParties.fromEvent)
       val projector = JdbcProjector.create(ds, system)
-
+      val projectionTable = ProjectionTable("ious")
       val projection = Projection.create[Event](
         projectionId,
-        ProjectionFilter.templateIdsByParty(Map(alice -> Set(jTemplateId).asJava).asJava),
-        iousProjectionTable
+        ProjectionFilter.templateIdsByParty(Map(alice -> Set(jTemplateId).asJava).asJava)
       )
       When("projecting created events")
       val control = projector.project(
         batchSource,
         projection.withEndOffset(offsets.last).withBatchSize(1),
-        insertCreateEvent
+        insertCreateEvent(projectionTable)
       )
       // projecting up to an offset, when it is reached the projection stops automatically
       control.resourcesClosed().asScala.futureValue mustBe Done
@@ -103,14 +102,13 @@ class JavaApiSpec
 
       val projection = Projection.create[Event](
         projectionId,
-        ProjectionFilter.templateIdsByParty(Map(alice -> Set(jTemplateId).asJava).asJava),
-        projectionTable
+        ProjectionFilter.templateIdsByParty(Map(alice -> Set(jTemplateId).asJava).asJava)
       )
       When("projecting created events")
       val control = projector.project(
         BatchSource.events(clientSettings),
         projection.withEndOffset(Offset(last.completionOffset)).withBatchSize(1),
-        insertCreateEvent
+        insertCreateEvent(projectionTable)
       )
       // projecting up to an offset, when it is reached the projection stops automatically
       control.resourcesClosed().asScala.futureValue mustBe Done
@@ -145,15 +143,14 @@ class JavaApiSpec
 
       val projection = Projection.create[Iou.Contract](
         projectionId,
-        ProjectionFilter.templateIdsByParty(Map(alice -> Set(jTemplateId).asJava).asJava),
-        projectionTable
+        ProjectionFilter.templateIdsByParty(Map(alice -> Set(jTemplateId).asJava).asJava)
       )
 
       Given("An UpdateMany batch operation")
       val updateMany =
         UpdateMany.create(
           Sql
-            .binder[Iou.Contract](s"""|insert into ${projection.table.name} 
+            .binder[Iou.Contract](s"""|insert into ${projectionTable.name} 
                 |(
                 |  contract_id, 
                 |  event_id, 
@@ -217,8 +214,7 @@ class JavaApiSpec
       val projection = Projection
         .create[Iou.Contract](
           projectionId,
-          ProjectionFilter.templateIdsByParty(Map(alice -> Set(jTemplateId).asJava).asJava),
-          projectionTable
+          ProjectionFilter.templateIdsByParty(Map(alice -> Set(jTemplateId).asJava).asJava)
         )
         .withEndOffset(Offset(last.completionOffset))
 
@@ -231,7 +227,7 @@ class JavaApiSpec
       val control = projector.project[Iou.Contract](
         BatchSource.create(clientSettings, mkContract),
         projection.withBatchSize(1),
-        insertIou
+        insertIou(projectionTable)
       )
       // projecting up to an offset, when it is reached the projection stops automatically
       control.resourcesClosed().asScala.futureValue mustBe Done
@@ -262,8 +258,7 @@ class JavaApiSpec
       val projection = Projection
         .create[Event](
           projectionId,
-          ProjectionFilter.templateIdsByParty(Map(alice -> Set(jTemplateId).asJava).asJava),
-          projectionTable
+          ProjectionFilter.templateIdsByParty(Map(alice -> Set(jTemplateId).asJava).asJava)
         )
         .withEndOffset(Offset(created.completionOffset))
 
@@ -271,7 +266,7 @@ class JavaApiSpec
       val control = projector.project(
         BatchSource.events(clientSettings),
         projection.withBatchSize(1),
-        insertOrDelete
+        insertOrDelete(projectionTable)
       )
 
       // projecting up to an offset, when it is reached the projection stops automatically
@@ -286,7 +281,7 @@ class JavaApiSpec
       val controlAfter = projector.project(
         BatchSource.events(clientSettings),
         projection.withEndOffset(Offset(createdAfterArchive.completionOffset)).withBatchSize(1),
-        insertOrDelete
+        insertOrDelete(projectionTable)
       )
       // projecting up to an offset, when it is reached the projection stops automatically
       controlAfter.resourcesClosed().asScala.futureValue mustBe Done
@@ -314,13 +309,12 @@ class JavaApiSpec
 
       val projection = Projection.create[Event](
         projectionId,
-        ProjectionFilter.templateIdsByParty(Map(alice -> Set(jTemplateId).asJava).asJava),
-        projectionTable
+        ProjectionFilter.templateIdsByParty(Map(alice -> Set(jTemplateId).asJava).asJava)
       )
 
       When("projecting events")
       val control =
-        projector.project(BatchSource.events(clientSettings), projection, insertOrDelete)
+        projector.project(BatchSource.events(clientSettings), projection, insertOrDelete(projectionTable))
 
       Then("eventually the projected table should contain the events")
       eventually(timeout(Span(5, Seconds))) {
@@ -329,7 +323,6 @@ class JavaApiSpec
       }
       control.cancel().asScala.futureValue
       control.resourcesClosed().asScala.futureValue mustBe Done
-
     }
 
     "project exercised events" in {
@@ -352,15 +345,14 @@ class JavaApiSpec
       Given("an ExercisedEvents projection")
       val projection = Projection[ExercisedEvent](
         projectionId,
-        ProjectionFilter.parties(Set(alice)),
-        projectionTable
+        ProjectionFilter.parties(Set(alice))
       ).withPredicate(choice(alice))
 
       val projector = JdbcProjector.create(ds, system)
       val control = projector.project(
         BatchSource.exercisedEvents(clientSettings),
         projection.withEndOffset(Offset(exercised.completionOffset)).withBatchSize(1),
-        insertExercisedTransfer
+        insertExercisedTransfer(projectionTable)
       )
 
       // projecting up to an offset, when it is reached the projection stops automatically
@@ -393,15 +385,14 @@ class JavaApiSpec
 
       val projection = Projection.create[Event](
         projectionId,
-        ProjectionFilter.templateIdsByParty(Map(alice -> Set(jTemplateId).asJava).asJava),
-        projectionTable
+        ProjectionFilter.templateIdsByParty(Map(alice -> Set(jTemplateId).asJava).asJava)
       )
 
       When("projecting events")
       val control = projector.project(
         BatchSource.events(clientSettings),
         projection.withEndOffset(Offset(created.completionOffset)).withBatchSize(1),
-        insertOrDelete
+        insertOrDelete(projectionTable)
       )
 
       // projecting up to an offset, when it is reached the projection stops automatically
@@ -420,7 +411,7 @@ class JavaApiSpec
       val controlAfter = projector.project(
         BatchSource.events(clientSettings),
         projection.withEndOffset(Offset(createdNext.completionOffset)).withBatchSize(1),
-        insertOrDelete
+        insertOrDelete(projectionTable)
       )
 
       controlAfter.resourcesClosed().asScala.futureValue mustBe Done
@@ -457,15 +448,14 @@ class JavaApiSpec
 
       val projection = Projection.create[TreeEvent](
         projectionId,
-        ProjectionFilter.parties(Set(alice).asJava),
-        projectionTable
+        ProjectionFilter.parties(Set(alice).asJava)
       )
 
       When("projecting events")
       val control = projector.project(
         BatchSource.treeEvents(clientSettings),
         projection.withEndOffset(Offset(exercised.completionOffset)).withBatchSize(1),
-        insertTreeTransfer
+        insertTreeTransfer(projectionTable)
       )
       // projecting up to an offset, when it is reached the projection stops automatically
       control.resourcesClosed().asScala.futureValue mustBe Done
@@ -489,7 +479,6 @@ class JavaApiSpec
     "stop the projection process and fail when an exception occurs in a JdbcAction" in {
       val alice = uniqueParty("Alice")
       val projectionId = ProjectionId(java.util.UUID.randomUUID().toString())
-      val projectionTable = ProjectionTable("ious")
 
       Given("created contracts")
       createIou(alice, alice, 1d).futureValue
@@ -498,8 +487,7 @@ class JavaApiSpec
 
       val projection = Projection.create[Event](
         projectionId,
-        ProjectionFilter.templateIdsByParty(Map(alice -> Set(jTemplateId).asJava).asJava),
-        projectionTable
+        ProjectionFilter.templateIdsByParty(Map(alice -> Set(jTemplateId).asJava).asJava)
       )
       val failingSql: Project[Event, JdbcAction] = { _ =>
         JList.of(ExecuteUpdate("insert into blabla"))
@@ -521,14 +509,12 @@ class JavaApiSpec
     "stop the projection process and fail when using bad grpc settings" in {
       val alice = uniqueParty("Alice")
       val projectionId = ProjectionId(java.util.UUID.randomUUID().toString())
-      val projectionTable = ProjectionTable("ious")
 
       val projector = JdbcProjector.create(ds, system)
 
       val projection = Projection.create[Event](
         projectionId,
-        ProjectionFilter.templateIdsByParty(Map(alice -> Set(jTemplateId).asJava).asJava),
-        projectionTable
+        ProjectionFilter.templateIdsByParty(Map(alice -> Set(jTemplateId).asJava).asJava)
       )
       val failingSql: Project[Event, JdbcAction] = { _ =>
         JList.of(ExecuteUpdate.create("insert into blabla"))
@@ -574,17 +560,16 @@ class JavaApiSpec
         BatchSource.GetContractTypeId.fromEvent,
         BatchSource.GetParties.fromEvent)
       val projector = JdbcProjector.create(ds, system)
-
+      val projectionTable = ProjectionTable("ious")
       val projection = Projection.create[Event](
         projectionId,
-        ProjectionFilter.templateIdsByParty(Map(alice -> Set(jTemplateId).asJava).asJava),
-        iousProjectionTable
+        ProjectionFilter.templateIdsByParty(Map(alice -> Set(jTemplateId).asJava).asJava)
       )
       When("projecting created events")
       val control = projector.project(
         batchSource,
         projection.withEndOffset(Offset(f"${size - 1}%07d")),
-        insertCreateEvent
+        insertCreateEvent(projectionTable)
       )
       // projecting up to an offset, when it is reached the projection stops automatically
       control.resourcesClosed().asScala.futureValue mustBe Done
@@ -636,12 +621,11 @@ class JavaApiSpec
       None.toJava,
       None.toJava,
       None.toJava,
-      Some(offset).toJava,
-      iousProjectionTable
+      Some(offset).toJava
     )
   }
 
-  val insertCreateEvent: Project[Event, JdbcAction] = { envelope: Envelope[Event] =>
+  def insertCreateEvent(table: ProjectionTable): Project[Event, JdbcAction] = { envelope: Envelope[Event] =>
     import envelope._
     val witnessParties = event.getWitnessParties().asScala.toList.mkString(",")
     // Java usage
@@ -676,7 +660,7 @@ class JavaApiSpec
     }
   }
 
-  val insertIou: Project[Iou.Contract, JdbcAction] = { envelope: Envelope[Iou.Contract] =>
+  def insertIou(table: ProjectionTable): Project[Iou.Contract, JdbcAction] = { envelope: Envelope[Iou.Contract] =>
     import envelope._
     val contract = unwrap
     val iou = contract.data
@@ -700,7 +684,7 @@ class JavaApiSpec
     )
   }
 
-  val insertOrDelete: Project[Event, JdbcAction] = { envelope: Envelope[Event] =>
+  def insertOrDelete(table: ProjectionTable): Project[Event, JdbcAction] = { envelope: Envelope[Event] =>
     import envelope._
     val witnessParties = event.getWitnessParties().asScala.toList.mkString(",")
     // Java usage
@@ -720,7 +704,7 @@ class JavaApiSpec
     } else if (event.isInstanceOf[ArchivedEvent]) {
       val archivedEvent = event.asInstanceOf[ArchivedEvent]
       JList.of[JdbcAction](
-        ExecuteUpdate(s"""delete from ${table.name} where contract_id = ?""")
+        ExecuteUpdate(s"""delete from ${iousProjectionTable.name} where contract_id = ?""")
           .bind(1, archivedEvent.getContractId())
       )
     } else {
@@ -728,7 +712,7 @@ class JavaApiSpec
     }
   }
 
-  val insertExercisedTransfer: Project[ExercisedEvent, JdbcAction] = {
+  def insertExercisedTransfer(table: ProjectionTable): Project[ExercisedEvent, JdbcAction] = {
     envelope: Envelope[ExercisedEvent] =>
       import envelope._
       val actingParties = event.getActingParties.asScala.mkString(",")
@@ -754,7 +738,7 @@ class JavaApiSpec
       } else JList.of()
   }
 
-  val insertTreeTransfer: Project[TreeEvent, JdbcAction] = { envelope: Envelope[TreeEvent] =>
+  def insertTreeTransfer(table: ProjectionTable): Project[TreeEvent, JdbcAction] = { envelope: Envelope[TreeEvent] =>
     import envelope._
     val witnessParties = event.getWitnessParties.asScala.mkString(",")
     event match {
