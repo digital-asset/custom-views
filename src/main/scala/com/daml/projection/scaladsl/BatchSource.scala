@@ -73,9 +73,9 @@ object BatchSource {
       getContractTypeId: GetContractTypeId[E],
       getParties: GetParties[E]) = {
     val templateIds = getTemplateIdsFromFilter(transactionFilter)
-    val parties = getPartiesStrFromFilter(transactionFilter)
-    getContractTypeId.fromEvent(event).forall(templateIds.contains(_)) &&
-    getParties.fromEvent(event).forall(parties.contains(_))
+    val parties = getPartiesFromFilter(transactionFilter)
+    getContractTypeId.from(event).forall(templateIds.contains(_)) &&
+    getParties.from(event).forall(parties.contains(_))
   }
 
   // TODO https://github.com/digital-asset/daml/issues/15658 filter using transactionFilter
@@ -147,7 +147,7 @@ object BatchSource {
       filters.getInclusive.templateIds
     }.toSet
 
-  private def getPartiesStrFromFilter(transactionFilter: SF.TransactionFilter) = transactionFilter.filtersByParty.keySet
+  private def getPartiesFromFilter(transactionFilter: SF.TransactionFilter) = transactionFilter.filtersByParty.keySet
 
   private def removeTemplateIdFilters(transactionFilter: SF.TransactionFilter) =
     SF.TransactionFilter(transactionFilter.filtersByParty.map {
@@ -206,12 +206,11 @@ object BatchSource {
     }
   }
 
-  @FunctionalInterface
   trait GetContractTypeId[E] {
-    def fromEvent(event: E): Option[Identifier]
+    def from(event: E): Option[Identifier]
 
     def toJava: JGetContractTypeId[E] = (event: E) =>
-      fromEvent(event).map(i => J.Identifier.fromProto(toJavaProto(i))).toJava
+      from(event).map(i => J.Identifier.fromProto(toJavaProto(i))).toJava
   }
 
   object GetContractTypeId {
@@ -233,12 +232,11 @@ object BatchSource {
       (exercisedEvent: ExercisedEvent) => exercisedEvent.templateId
   }
 
-  @FunctionalInterface
   trait GetParties[E] {
-    def fromEvent(event: E): Set[String]
+    def from(event: E): Set[String]
 
     def toJava: JGetParties[E] = (event: E) =>
-      fromEvent(event).asJava
+      from(event).asJava
   }
 
   object GetParties {

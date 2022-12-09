@@ -137,54 +137,54 @@ object BatchSource {
 
   @FunctionalInterface
   trait GetContractTypeId[E] {
-    def fromEvent(event: E): ju.Optional[J.Identifier]
+    def from(event: E): ju.Optional[J.Identifier]
     def toScala: SGetContractTypeId[E] = (event: E) =>
-      fromEvent(event).toScala.map(i => Identifier.fromJavaProto(i.toProto))
+      from(event).toScala.map(i => Identifier.fromJavaProto(i.toProto))
   }
 
   object GetContractTypeId {
-    implicit val `from event`: GetContractTypeId[J.Event] = fromEvent
+    implicit val `from event`: GetContractTypeId[J.Event] = fromEvent()
     def fromEvent(): GetContractTypeId[J.Event] = (event: J.Event) => {
       val se = SE.Event.fromJavaProto(event.toProtoEvent)
-      SGetContractTypeId.fromEvent.toJava.fromEvent(se)
+      SGetContractTypeId.fromEvent.toJava.from(se)
     }
 
-    implicit val `from created event`: GetContractTypeId[J.CreatedEvent] = fromCreatedEvent
-    def fromCreatedEvent: GetContractTypeId[J.CreatedEvent] =
+    implicit val `from created event`: GetContractTypeId[J.CreatedEvent] = fromCreatedEvent()
+    def fromCreatedEvent(): GetContractTypeId[J.CreatedEvent] =
       (createdEvent: J.CreatedEvent) => Optional.of(createdEvent.getTemplateId)
 
-    implicit val `from archived event`: GetContractTypeId[J.ArchivedEvent] = fromArchivedEvent
-    def fromArchivedEvent: GetContractTypeId[J.ArchivedEvent] =
+    implicit val `from archived event`: GetContractTypeId[J.ArchivedEvent] = fromArchivedEvent()
+    def fromArchivedEvent(): GetContractTypeId[J.ArchivedEvent] =
       (archivedEvent: J.ArchivedEvent) => Optional.of(archivedEvent.getTemplateId)
 
-    implicit val `from exercised event`: GetContractTypeId[J.ExercisedEvent] = fromExercisedEvent
-    def fromExercisedEvent: GetContractTypeId[J.ExercisedEvent] =
+    implicit val `from exercised event`: GetContractTypeId[J.ExercisedEvent] = fromExercisedEvent()
+    def fromExercisedEvent(): GetContractTypeId[J.ExercisedEvent] =
       (exercisedEvent: J.ExercisedEvent) => Optional.of(exercisedEvent.getTemplateId)
   }
 
   @FunctionalInterface
   trait GetParties[E] {
-    def fromEvent(event: E): ju.Set[String]
-    def toScala: SGetParties[E] = (event: E) => fromEvent(event).asScala.toSet
+    def from(event: E): ju.Set[String]
+    def toScala: SGetParties[E] = (event: E) => from(event).asScala.toSet
   }
 
   object GetParties {
-    implicit val `from event`: GetParties[J.Event] = fromEvent
-    def fromEvent: GetParties[J.Event] = (event: J.Event) => {
+    implicit val `from event`: GetParties[J.Event] = fromEvent()
+    def fromEvent(): GetParties[J.Event] = (event: J.Event) => {
       val se = SE.Event.fromJavaProto(event.toProtoEvent)
-      SGetParties.fromEvent.toJava.fromEvent(se)
+      SGetParties.fromEvent.toJava.from(se)
     }
 
-    implicit val `from created event`: GetParties[J.CreatedEvent] = fromCreatedEvent
-    def fromCreatedEvent: GetParties[J.CreatedEvent] =
+    implicit val `from created event`: GetParties[J.CreatedEvent] = fromCreatedEvent()
+    def fromCreatedEvent(): GetParties[J.CreatedEvent] =
       (createdEvent: J.CreatedEvent) => ju.Set.copyOf(createdEvent.getWitnessParties)
 
-    implicit val `from archived event`: GetParties[J.ArchivedEvent] = fromArchivedEvent
-    def fromArchivedEvent: GetParties[J.ArchivedEvent] =
+    implicit val `from archived event`: GetParties[J.ArchivedEvent] = fromArchivedEvent()
+    def fromArchivedEvent(): GetParties[J.ArchivedEvent] =
       (archivedEvent: J.ArchivedEvent) => ju.Set.copyOf(archivedEvent.getWitnessParties)
 
-    implicit val `from exercised event`: GetParties[J.ExercisedEvent] = fromExercisedEvent
-    def fromExercisedEvent: GetParties[J.ExercisedEvent] =
+    implicit val `from exercised event`: GetParties[J.ExercisedEvent] = fromExercisedEvent()
+    def fromExercisedEvent(): GetParties[J.ExercisedEvent] =
       (exercisedEvent: J.ExercisedEvent) => ju.Set.copyOf(exercisedEvent.getWitnessParties)
   }
 }
