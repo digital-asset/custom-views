@@ -60,8 +60,8 @@ class JavaApiSpec
       )
       val batchSource = BatchSource.create(
         JList.of(batch),
-        BatchSource.GetContractTypeId.fromEvent,
-        BatchSource.GetParties.fromEvent)
+        BatchSource.GetContractTypeId.fromEvent(),
+        BatchSource.GetParties.fromEvent())
       val projector = JdbcProjector.create(ds, system)
       val projectionTable = ProjectionTable("ious")
       val projection = Projection.create[Event](
@@ -557,8 +557,8 @@ class JavaApiSpec
       }
       val batchSource = BatchSource.create(
         batches.asJava,
-        BatchSource.GetContractTypeId.fromEvent,
-        BatchSource.GetParties.fromEvent)
+        BatchSource.GetContractTypeId.fromEvent(),
+        BatchSource.GetParties.fromEvent())
       val projector = JdbcProjector.create(ds, system)
       val projectionTable = ProjectionTable("ious")
       val projection = Projection.create[Event](
