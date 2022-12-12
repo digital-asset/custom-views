@@ -21,7 +21,7 @@ import org.scalatest.concurrent.Eventually.eventually
 import java.sql.SQLException
 import java.time.{ Instant, LocalDate, ZoneId }
 import java.time.temporal.ChronoUnit
-import java.util.{ List => JList }
+import java.util.{ List => JList, Optional }
 import scala.jdk.CollectionConverters._
 import scala.jdk.FunctionConverters._
 import scala.jdk.FutureConverters._
@@ -687,7 +687,11 @@ class JavaApiSpec
         records.asJava,
         TxBoundary.create[Record](projectionId, offsets.last)
       )
-      val batchSource = BatchSource.create(JList.of(batch))
+      val batchSource =
+        BatchSource.create(
+          JList.of(batch),
+          (_: Record) => Optional.empty[Identifier](),
+          (_: Record) => Set.empty[String].asJava)
       val projector = JdbcProjector.create(ds, system)
       val projectionTable = ProjectionTable("column_types_table")
       val projection = Projection.create[Record](
