@@ -174,7 +174,9 @@ trait Bind[-T] {
   /** Sets the value on the [[java.sql.PreparedStatement]] */
   def set(ps: PreparedStatement, pos: Int, value: T): Unit
 
-  /** Creates a [[Bind.Applied]] function that will set `value` at `pos` on a `PreparedStatement` argument. */
+  /**
+   * Creates a [[Bind.Applied]] function that will set `value` at `pos` on a [[java.sql.PreparedStatement]] argument.
+   */
   final def apply(value: T, pos: Int): Bind.Applied = set(_, pos, value)
 
   /**
@@ -188,14 +190,14 @@ trait Bind[-T] {
   }
 
   /**
-   * The [[java.sql.Types]] code that should be used when invoking `setNull` on `PreparedStatement`. Default in this
-   * trait is set to java.sql.Types.NULL, override if a more specific code is needed.
+   * The [[java.sql.Types]] code that should be used when invoking `setNull` on [[java.sql.PreparedStatement]]. Default
+   * in this trait is set to java.sql.Types.NULL, override if a more specific code is needed.
    */
   def nullSqlType: Int = java.sql.Types.NULL
 
   /**
    * Return a new Bind with the [[java.sql.Types]] code modified, that should be used when invoking `setNull` on
-   * `PreparedStatement`.
+   * [[java.sql.PreparedStatement]].
    */
   def withSqlType(sqlType: Int): Bind[T] = new Bind[T] {
     override def nullSqlType: Int = sqlType
@@ -343,7 +345,7 @@ object Binder {
 }
 
 /**
- * Binds fields of `R` to a `PreparedStatement`.
+ * Binds fields of `R` to a [[java.sql.PreparedStatement]].
  * @tparam R
  *   the type from which [[Bind]]s are created.
  */
