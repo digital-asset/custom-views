@@ -152,7 +152,7 @@ object BatchSource {
       from(event).toScala.map(i => Identifier.fromJavaProto(i.toProto))
   }
 
-  /** Methods that instantiates [[GetContractTypeId]] from common event types */
+  /** Provides methods that create [[GetContractTypeId]]s from common event types */
   object GetContractTypeId {
     implicit val `from event`: GetContractTypeId[J.Event] = fromEvent()
     def fromEvent(): GetContractTypeId[J.Event] = (event: J.Event) => {
