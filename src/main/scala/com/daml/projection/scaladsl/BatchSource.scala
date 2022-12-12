@@ -246,7 +246,7 @@ object BatchSource {
    * Extracts parties from `E` element. It is used in [[BatchSource]] `create` methods used for testing purposes, where
    * the [[BatchSource]] is created from in-memory data structures.
    *
-   * The [[GetParties]] object provides from methods for common events.
+   * The [[GetParties]] object provides `from` methods for common events.
    */
   trait GetParties[E] {
 
