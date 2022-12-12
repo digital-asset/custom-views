@@ -594,95 +594,7 @@ class JavaApiSpec
       Given("test batches")
       val size = 3
       val offsets = (0 until size).map(i => Offset(f"$i%07d"))
-      case class Record(
-          contract_id: Option[String],
-          stakeholder: String,
-          long_column: Option[Long],
-          int_column: Option[Int],
-          short_column: Option[Short],
-          boolean_column: Option[Boolean],
-          double_column: Option[Double],
-          float_column: Option[Float],
-          offset: Option[Offset],
-          projection_id: Option[ProjectionId],
-          bigdecimal: Option[BigDecimal],
-          date: Option[LocalDate],
-          timestamp: Option[Instant]
-      )
-      // postgres timestamp does not support nanos ootb
-      val now = Instant.now().truncatedTo(ChronoUnit.MILLIS)
-      val zoneId = ZoneId.of("UTC")
-      def mkRecord(offset: Offset): Record = {
-        Record(
-          contract_id = Some("contract_id"),
-          stakeholder = alice,
-          long_column = Some(1L),
-          int_column = Some(1),
-          short_column = Some(2),
-          boolean_column = Some(false),
-          double_column = Some(1.3d),
-          float_column = Some(1.2f),
-          offset = Some(offset),
-          projection_id = Some(ProjectionId("id")),
-          bigdecimal = Some(BigDecimal.decimal(100d)),
-          date = Some(LocalDate.ofInstant(now, zoneId)),
-          timestamp = Some(now)
-        )
-      }
-      def insertRecord(table: ProjectionTable): Project[Record, JdbcAction] = { envelope: Envelope[Record] =>
-        import envelope._
-        val record = unwrap
-        JList.of(
-          ExecuteUpdate
-            .create(
-              s"""|insert into ${table.name} 
-              |( 
-              |  contract_id,
-              |  stakeholder,
-              |  long_column,
-              |  int_column,
-              |  short_column,
-              |  boolean_column,
-              |  double_column,
-              |  float_column,
-              |  event_offset,
-              |  projection_id,
-              |  bigdecimal_column,
-              |  date_column,
-              |  timestamp_column
-              |) 
-              |values (
-              |  :contract_id,
-              |  :stakeholder,
-              |  :long_column,
-              |  :int_column,
-              |  :short_column,
-              |  :boolean_column,
-              |  :double_column,
-              |  :float_column,
-              |  :offset,
-              |  :projection_id,
-              |  :bigdecimal_column,
-              |  :date_column,
-              |  :timestamp_column
-              |)
-              |""".stripMargin)
-            .bind("contract_id", record.contract_id)
-            .bind("stakeholder", record.stakeholder)
-            .bind("long_column", record.long_column)
-            .bind("int_column", record.int_column)
-            .bind("short_column", record.short_column)
-            .bind("boolean_column", record.boolean_column)
-            .bind("double_column", record.double_column)
-            .bind("float_column", record.float_column)
-            .bind("offset", record.offset.map(_.value))
-            .bind("projection_id", record.projection_id)
-            .bind("bigdecimal_column", record.bigdecimal)
-            .bind("date_column", record.date)
-            .bind("timestamp_column", record.timestamp)
-        )
-      }
-      val records = offsets.map(o => mkEnvelope(o, mkRecord(o)))
+      val records = offsets.map(o => mkEnvelope(o, mkRecord(o, alice)))
       val batch = Batch.create(
         records.asJava,
         TxBoundary.create[Record](projectionId, offsets.last)
@@ -716,6 +628,154 @@ class JavaApiSpec
       Then("the projection has advanced to the tx offset associated to the first event")
       projector.getCurrentOffset(projection).toScala must be(Some(offsets.last))
     }
+
+    "project records, setting supported column datatypes to NULL" in {
+      val alice = uniqueParty("Alice")
+      val projectionId = ProjectionId(java.util.UUID.randomUUID().toString())
+
+      Given("test batches")
+      val size = 3
+      val offsets = (0 until size).map(i => Offset(f"$i%07d"))
+      val records = offsets.map(o => mkEnvelope(o, mkNoneRecord(alice)))
+      val batch = Batch.create(
+        records.asJava,
+        TxBoundary.create[Record](projectionId, offsets.last)
+      )
+      val batchSource =
+        BatchSource.create(
+          JList.of(batch),
+          (_: Record) => Optional.empty[Identifier](),
+          (_: Record) => Set.empty[String].asJava)
+      val projector = JdbcProjector.create(ds, system)
+      val projectionTable = ProjectionTable("column_types_table")
+      val projection = Projection.create[Record](
+        projectionId,
+        ProjectionFilter.parties(Set(alice))
+      )
+      When("projecting records")
+      val control = projector.project(
+        batchSource,
+        projection.withEndOffset(offsets.last).withBatchSize(1),
+        insertRecord(projectionTable)
+      )
+      // projecting up to an offset, when it is reached the projection stops automatically
+      control.completed().asScala.futureValue mustBe Done
+      control.failed().asScala.failed.futureValue mustBe (an[NoSuchElementException])
+      Then("the projected table should contain the records")
+      import doobie.postgres.implicits._
+      val recordsDb = runIO(sql"select * from column_types_table".query[Record].to[List])
+      recordsDb.size must be(size)
+      recordsDb must contain theSameElementsAs records.map(_.event)
+
+      Then("the projection has advanced to the tx offset associated to the first event")
+      projector.getCurrentOffset(projection).toScala must be(Some(offsets.last))
+    }
+  }
+  case class Record(
+      contract_id: Option[String],
+      stakeholder: String,
+      long_column: Option[Long],
+      int_column: Option[Int],
+      short_column: Option[Short],
+      boolean_column: Option[Boolean],
+      double_column: Option[Double],
+      float_column: Option[Float],
+      offset: Option[Offset],
+      projection_id: Option[ProjectionId],
+      bigdecimal: Option[BigDecimal],
+      date: Option[LocalDate],
+      timestamp: Option[Instant]
+  )
+  // postgres timestamp does not support nanos ootb
+  def mkRecord(offset: Offset, stakeholder: String): Record = {
+    val now = Instant.now().truncatedTo(ChronoUnit.MILLIS)
+    val zoneId = ZoneId.of("UTC")
+    Record(
+      contract_id = Some("contract_id"),
+      stakeholder = stakeholder,
+      long_column = Some(1L),
+      int_column = Some(1),
+      short_column = Some(2),
+      boolean_column = Some(false),
+      double_column = Some(1.3d),
+      float_column = Some(1.2f),
+      offset = Some(offset),
+      projection_id = Some(ProjectionId("id")),
+      bigdecimal = Some(BigDecimal.decimal(100d)),
+      date = Some(LocalDate.ofInstant(now, zoneId)),
+      timestamp = Some(now)
+    )
+  }
+  def mkNoneRecord(stakeholder: String): Record = {
+    Record(
+      contract_id = None,
+      stakeholder = stakeholder,
+      long_column = None,
+      int_column = None,
+      short_column = None,
+      boolean_column = None,
+      double_column = None,
+      float_column = None,
+      offset = None,
+      projection_id = None,
+      bigdecimal = None,
+      date = None,
+      timestamp = None
+    )
+  }
+
+  def insertRecord(table: ProjectionTable): Project[Record, JdbcAction] = { envelope: Envelope[Record] =>
+    import envelope._
+    val record = unwrap
+    JList.of(
+      ExecuteUpdate
+        .create(
+          s"""|insert into ${table.name} 
+              |( 
+              |  contract_id,
+              |  stakeholder,
+              |  long_column,
+              |  int_column,
+              |  short_column,
+              |  boolean_column,
+              |  double_column,
+              |  float_column,
+              |  event_offset,
+              |  projection_id,
+              |  bigdecimal_column,
+              |  date_column,
+              |  timestamp_column
+              |) 
+              |values (
+              |  :contract_id,
+              |  :stakeholder,
+              |  :long_column,
+              |  :int_column,
+              |  :short_column,
+              |  :boolean_column,
+              |  :double_column,
+              |  :float_column,
+              |  :offset,
+              |  :projection_id,
+              |  :bigdecimal_column,
+              |  :date_column,
+              |  :timestamp_column
+              |)
+              |""".stripMargin)
+        .bind("contract_id", record.contract_id)
+        .bind("stakeholder", record.stakeholder)
+        .bind("long_column", record.long_column)
+        .bind("int_column", record.int_column)
+        .bind("short_column", record.short_column)
+        .bind("boolean_column", record.boolean_column)
+        .bind("double_column", record.double_column)
+        .bind("float_column", record.float_column)
+        .bind("offset", record.offset.map(_.value))
+        .bind("projection_id", record.projection_id)
+        .bind("bigdecimal_column", record.bigdecimal)
+        .bind("date_column", record.date)
+        .bind("timestamp_column", record.timestamp)
+    )
   }
 
   val iousProjectionTable = ProjectionTable("ious")
