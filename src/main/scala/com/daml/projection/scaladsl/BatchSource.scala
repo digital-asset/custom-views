@@ -206,13 +206,23 @@ object BatchSource {
     }
   }
 
+  /**
+   * Returns an optional [[Identifier]] from `E`.
+   *
+   * It should be only used by [[BatchSource]] create methods which creates [[BatchSource]] for testing purposes. It can
+   * be instantiated with `from` methods in object [[GetContractTypeId]].
+   */
   trait GetContractTypeId[E] {
+
+    /** Extracts an optional [[Identifier]] from `E`. */
     def from(event: E): Option[Identifier]
 
+    /** Converts to java DSL types. */
     def toJava: JGetContractTypeId[E] = (event: E) =>
       from(event).map(i => J.Identifier.fromProto(toJavaProto(i))).toJava
   }
 
+  /** Methods that instantiates [[GetContractTypeId]] from common event types */
   object GetContractTypeId {
     implicit val `from event`: GetContractTypeId[Event] = fromEvent
     def fromEvent: GetContractTypeId[Event] = {
@@ -232,13 +242,23 @@ object BatchSource {
       (exercisedEvent: ExercisedEvent) => exercisedEvent.templateId
   }
 
+  /**
+   * Returns an parties from `E`.
+   *
+   * It should be only used by [[BatchSource]] create methods which creates [[BatchSource]] for testing purposes. It can
+   * be instantiated with `from` methods in object [[GetContractTypeId]]
+   */
   trait GetParties[E] {
+
+    /** Extracts an set of parties from `E`. */
     def from(event: E): Set[String]
 
+    /** Converts to java DSL types. */
     def toJava: JGetParties[E] = (event: E) =>
       from(event).asJava
   }
 
+  /** Methods that instantiates [[GetParties]] from common event types */
   object GetParties {
     implicit val `from event`: GetParties[Event] = fromEvent
     def fromEvent: GetParties[Event] = {
