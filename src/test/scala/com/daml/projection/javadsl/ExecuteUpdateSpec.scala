@@ -17,6 +17,7 @@ class ExecuteUpdateSpec
       val update = ExecuteUpdate.create(query)
       update.sql.namedParameters must be(empty)
       update.sql.jdbcStr must be(query)
+      update.sql.isBound must be(true)
     }
     "support a query with a named bind parameter" in {
       val query = "select * from table where id = :id"
@@ -25,7 +26,8 @@ class ExecuteUpdateSpec
       update.sql.jdbcStr must be("select * from table where id = ?")
       val bound = update.bind("id", "my-id")
       bound.sql.jdbcStr must be(update.sql.jdbcStr)
-      bound.sql.setters(1) must be(BindValue("my-id", 1))
+      bound.sql.isBound must be(true)
+      bound.sql.binds.keys must contain(1)
     }
 
     "Only support bind parameters starting with [a-z]+, followed by _, [a-z]+, or [0-9]" in {
@@ -53,8 +55,8 @@ class ExecuteUpdateSpec
         .bind("id", "my-id")
         .bind("order", "asc")
       bound.sql.jdbcStr must be(update.sql.jdbcStr)
-      bound.sql.setters(1) must be(BindValue("my-id", 1))
-      bound.sql.setters(2) must be(BindValue("asc", 2))
+      bound.sql.isBound must be(true)
+      bound.sql.binds.keys must contain theSameElementsAs List(1, 2)
     }
 
     "support a query mixed named and positional bind parameters" in {
@@ -70,9 +72,8 @@ class ExecuteUpdateSpec
         .bind("order", "asc")
         .bind(2, "name")
       bound.sql.jdbcStr must be(update.sql.jdbcStr)
-      bound.sql.setters(1) must be(BindValue("my-id", 1))
-      bound.sql.setters(2) must be(BindValue("name", 2))
-      bound.sql.setters(3) must be(BindValue("asc", 3))
+      bound.sql.isBound must be(true)
+      bound.sql.binds.keys must contain theSameElementsAs List(1, 2, 3)
     }
 
     "support a query with named bind parameters and postgres casts " in {
@@ -81,10 +82,14 @@ class ExecuteUpdateSpec
       update.sql.parameterNames must be(List("id"))
       update.sql.namedParameters must contain theSameElementsAs (Map("id" -> NamedParameter("id", 1)))
       update.sql.jdbcStr must be("insert into table t(id, json1, json2) values(?, ?::jsonb, ? :: jsonb)")
-      val bound = update
+      val boundId = update
         .bind("id", "my-id")
-      bound.sql.jdbcStr must be(update.sql.jdbcStr)
-      bound.sql.setters(1) must be(BindValue("my-id", 1))
+      boundId.sql.jdbcStr must be(update.sql.jdbcStr)
+      boundId.sql.namedParameters.size must be(boundId.sql.binds.size)
+      boundId.sql.binds.keys must contain(1)
+      boundId.sql.isBound must be(false)
+      val bound = boundId.bind(2, "foo").bind(3, "bar")
+      bound.sql.isBound must be(true)
     }
     "" in {
       """select '{"foo": {"bar": "baz"}}'::jsonb ? 'bar' """
@@ -115,14 +120,16 @@ class ExecuteUpdateSpec
       update.sql.jdbcStr must be("select * from table where id = ? and name=?")
       val bound = update.bind(1, "my-id").bind(2, "my-name")
       bound.sql.jdbcStr must be(update.sql.jdbcStr)
-      bound.sql.setters(1) must be(BindValue("my-id", 1))
-      bound.sql.setters(2) must be(BindValue("my-name", 2))
+      bound.sql.isBound must be(true)
+      bound.sql.binds.keys must contain(1)
+      bound.sql.binds.keys must contain(2)
     }
     "support bind by position using ?" in {
       val query = "select * from table where id = ? and name = ?"
       val update = ExecuteUpdate.create(query)
       update.sql.jdbcStr must be("select * from table where id = ? and name = ?")
       val bound = update.bind(1, "my-id").bind(2, "my-name")
+      bound.sql.isBound must be(true)
       bound.sql.jdbcStr must be(update.sql.jdbcStr)
     }
   }

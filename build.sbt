@@ -47,6 +47,8 @@ val deps = Seq(
   "com.typesafe.akka" %% "akka-discovery" % AkkaVersion,
   "org.flywaydb" % "flyway-core" % "8.5.11",
   "com.typesafe.scala-logging" %% "scala-logging" % "3.9.4",
+  "org.slf4j" % "slf4j-api" % "2.0.5",
+  "ch.qos.logback" % "logback-classic" % "1.3.5",
   "com.zaxxer" % "HikariCP" % "5.0.1" % Test,
   "com.typesafe.akka" %% "akka-stream-testkit" % AkkaVersion % Test,
   "org.scalatest" %% "scalatest-core" % ScalaTestVersion % Test,

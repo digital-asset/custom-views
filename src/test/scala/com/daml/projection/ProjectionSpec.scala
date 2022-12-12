@@ -170,7 +170,6 @@ class ProjectionSpec
       When("projecting exercised events")
       val source =
         Consumer.exercisedEventSource(clientSettings, projection.withBatchSize(1))
-
       // This is just for testing, one insert per envelope is VERY SLOW (obviously).
       // see PerfSpec and Action.bulkFlow
       val toAction: Projection.Project[ExercisedEvent, Action] = { envelope =>

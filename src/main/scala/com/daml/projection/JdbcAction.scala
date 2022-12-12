@@ -5,13 +5,13 @@ package com.daml.projection
 
 import com.typesafe.scalalogging.LazyLogging
 
-import java.sql.SQLException
+import java.sql.{ PreparedStatement, SQLException }
+import java.time.{ Instant, LocalDate, LocalDateTime }
 import java.util.Optional
 import scala.jdk.CollectionConverters._
 import scala.util.control.NoStackTrace
 import scala.util.matching.Regex
 import scala.jdk.FunctionConverters._
-import java.{ util => ju }
 import java.util.{ function => juf }
 
 /**
@@ -93,33 +93,28 @@ object Sql {
       namedParameters: Map[String, Parameter],
       positionalParameters: List[Parameter],
       parameterNames: List[String],
-      setters: Map[Int, Setter] = Map.empty[Int, Setter]
+      binds: Map[Int, Bind.Applied] = Map.empty[Int, Bind.Applied]
   ) {
-    def totalParameters = namedParameters.size + positionalParameters.size
+    def parametersSize = namedParameters.size + positionalParameters.size
     def binder[R] = Binder[R](this)
+    def isBound = parametersSize == binds.size
 
     /**
      * Bind an argument to a parameter by position in the SQL query.
      */
-    def bind[T](pos: Int, arg: T): Statement = {
-      copy(setters = setters + (pos -> setter(pos, arg)))
-    }
+    def bind[T: Bind.Used](pos: Int, arg: T): Statement =
+      copy(binds = binds + (pos -> bindValue(pos, arg)))
 
-    def setter[T](pos: Int, arg: T): Setter = {
-      require(pos > 0, "bind position must be >= 1")
-      require(
-        pos <= totalParameters,
-        s"bind position '$pos', out of bounds for ${totalParameters} bind parameters"
-      )
-      require(!setters.contains(pos), s"cannot bind to the same position '$pos' more than once")
-      BindValue(arg, pos)
-    }
-
-    def setter[T](name: String, arg: T): Setter = {
+    /**
+     * Bind an argument to a named parameter. Parameters start with a colon ':' followed by a letter. Numbers,
+     * underscore and lowercase letters are allowed characters in a named parameter.
+     */
+    def bind[T: Bind.Used](name: String, arg: T): Statement = {
+      require(!name.startsWith(":"), s"cannot bind to name $name, must not start with ':'.")
       val delimiter = ", "
       namedParameters.get(name).map { namedParameter =>
-        require(!setters.contains(namedParameter.position), s"cannot bind to the same name '$name' more than once")
-        BindValue(arg, namedParameter.position)
+        require(!binds.contains(namedParameter.position), s"cannot bind to the same name '$name' more than once")
+        copy(binds = binds + (namedParameter.position -> bindValue(namedParameter.position, arg)))
       }.getOrElse {
         if (!namedParameters.isEmpty) throw new IllegalArgumentException(
           s"Cannot bind '$name'. sql statement:\n${originalSql}'\nbind parameters:\n${namedParameters.values.mkString(delimiter)}")
@@ -128,15 +123,24 @@ object Sql {
       }
     }
 
-    /**
-     * Bind an argument to a named parameter. Parameters start with a colon ':' followed by a letter. Numbers,
-     * underscore and lowercase letters are allowed characters in a named parameter.
-     */
-    def bind[T](name: String, arg: T): Statement = {
+    def bindValue[T: Bind.Used](pos: Int, arg: T): Bind.Applied = {
+      require(pos > 0, "bind position must be >= 1")
+      require(
+        pos <= parametersSize,
+        s"bind position '$pos', out of bounds for ${parametersSize} bind parameters"
+      )
+      require(!binds.contains(pos), s"cannot bind to the same position '$pos' more than once")
+      val setter = implicitly[Bind.Used[T]]
+      setter.apply(arg, pos)
+    }
+
+    def bindValue[T: Bind.Used](name: String, arg: T): Bind.Applied = {
+      val setter = implicitly[Bind.Used[T]]
+
       val delimiter = ", "
       namedParameters.get(name).map { namedParameter =>
-        require(!setters.contains(namedParameter.position), s"cannot bind to the same name '$name' more than once")
-        copy(setters = setters + (namedParameter.position -> BindValue(arg, namedParameter.position)))
+        require(!binds.contains(namedParameter.position), s"cannot bind to the same name '$name' more than once")
+        setter.apply(arg, namedParameter.position)
       }.getOrElse {
         if (!namedParameters.isEmpty) throw new IllegalArgumentException(
           s"Cannot bind '$name'. sql statement:\n${originalSql}'\nbind parameters:\n${namedParameters.values.mkString(delimiter)}")
@@ -162,42 +166,85 @@ object Sql {
 }
 
 /**
- * Binds a value to a position in the PreparedStatement.
+ * Binds a value of `T` to a [[java.sql.PreparedStatement]].
  */
-final case class BindValue[T](value: T, pos: Int) extends Setter {
-  def set(ps: java.sql.PreparedStatement) = {
-    value match {
-      case x: Boolean                   => ps.setBoolean(pos, x)
-      case x: Byte                      => ps.setByte(pos, x)
-      case x: Short                     => ps.setShort(pos, x)
-      case x: Int                       => ps.setInt(pos, x)
-      case x: Long                      => ps.setLong(pos, x)
-      case x: Float                     => ps.setFloat(pos, x)
-      case x: Double                    => ps.setDouble(pos, x)
-      case x: BigDecimal                => ps.setBigDecimal(pos, x.bigDecimal)
-      case x: java.math.BigDecimal      => ps.setBigDecimal(pos, x)
-      case x: String                    => ps.setString(pos, x)
-      case x: java.sql.Date             => ps.setDate(pos, x)
-      case x: java.sql.Timestamp        => ps.setTimestamp(pos, x)
-      case x: java.sql.Array            => ps.setArray(pos, x)
-      case null                         => ps.setNull(pos, java.sql.Types.NULL)
-      case x: Optional[_] if x.isEmpty  => ps.setNull(pos, java.sql.Types.NULL)
-      case x: Optional[_] if !x.isEmpty => ps.setObject(pos, x.get())
-      // TODO fix in typeclass solution
-      case x: Option[_] if x.isEmpty => ps.setNull(pos, java.sql.Types.NULL)
-      case Some(x)                   => ps.setObject(pos, x)
-      case x                         => ps.setObject(pos, x)
+@FunctionalInterface
+trait Bind[-T] {
+
+  /** Sets the value on the [[java.sql.PreparedStatement]] */
+  def set(ps: PreparedStatement, pos: Int, value: T): Unit
+
+  /** Creates a [[Bind.Applied]] function that will set `value` at `pos` on a `PreparedStatement` argument. */
+  final def apply(value: T, pos: Int): Bind.Applied = set(_, pos, value)
+
+  /**
+   * Creates a [[Bind]] from this [[Bind]] by converting `U` to `T` using `f`.
+   */
+  def contramap[U](f: U => T) = new Bind[U] {
+    override def set(ps: PreparedStatement, pos: Int, value: U) = {
+      Bind.this.set(ps, pos, f(value))
     }
   }
 }
 
-/** Sets a bind value on a PreparedStatement */
-@SerialVersionUID(1L)
-@FunctionalInterface
-trait Setter extends java.io.Serializable {
+/**
+ * Provides `Bind` values for [[ExecuteUpdate.bind[T](pos*]],[[ExecuteUpdate.bind[T](name*]], [[Binder.bind[T](pos*]]
+ * and [[Binder.bind[T](name*]] methods.
+ */
+object Bind {
+  type Used[-T] = Bind[_ >: T]
 
-  /** Sets a bind value on `ps` */
-  def set(ps: java.sql.PreparedStatement): Unit
+  private def mk[T <: AnyVal](f: (PreparedStatement, Int, T) => Unit): Bind[T] = new Bind[T] {
+    override def set(ps: PreparedStatement, pos: Int, value: T) = f(ps, pos, value)
+  }
+
+  private def mkN[T >: Null <: AnyRef](f: (PreparedStatement, Int, T) => Unit): Bind[T] = new Bind[T] {
+    override def set(ps: PreparedStatement, pos: Int, value: T) = {
+      if (value eq null) ps.setNull(pos, java.sql.Types.NULL) else f(ps, pos, value)
+    }
+    // TODO use specific java.sql.Types code https://github.com/digital-asset/daml/issues/15871
+  }
+
+  implicit val _Boolean: Bind[Boolean] = mk(_.setBoolean(_, _))
+  implicit val _Byte: Bind[Byte] = mk(_.setByte(_, _))
+  implicit val _Short: Bind[Short] = mk(_.setShort(_, _))
+  implicit val _Int: Bind[Int] = mk(_.setInt(_, _))
+  implicit val _Long: Bind[Long] = mk(_.setLong(_, _))
+  implicit val _Float: Bind[Float] = mk(_.setFloat(_, _))
+  implicit val _Double: Bind[Double] = mk(_.setDouble(_, _))
+  implicit val _BigDecimal: Bind[BigDecimal] = mkN((ps, pos, x) => ps.setBigDecimal(pos, x.bigDecimal))
+
+  implicit val Boolean: Bind[java.lang.Boolean] = _Boolean.contramap(_.booleanValue)
+  implicit val Byte: Bind[java.lang.Byte] = _Byte.contramap(_.toByte)
+  implicit val Short: Bind[java.lang.Short] = _Short.contramap(_.toShort)
+  implicit val Int: Bind[java.lang.Integer] = _Int.contramap(_.toInt)
+  implicit val Long: Bind[java.lang.Long] = _Long.contramap(_.toLong)
+  implicit val Float: Bind[java.lang.Float] = _Float.contramap(_.toFloat)
+  implicit val Double: Bind[java.lang.Double] = _Double.contramap(_.toDouble)
+  implicit val BigDecimal: Bind[java.math.BigDecimal] = mkN(_.setBigDecimal(_, _))
+
+  implicit val String: Bind[String] = mkN(_.setString(_, _))
+  implicit val Date: Bind[java.sql.Date] = mkN(_.setDate(_, _))
+  implicit val LocalDate: Bind[LocalDate] = mkN((ps, pos, x) => ps.setDate(pos, java.sql.Date.valueOf(x)))
+  implicit val Timestamp: Bind[java.sql.Timestamp] = mkN(_.setTimestamp(_, _))
+  implicit val LocalDateTime: Bind[LocalDateTime] =
+    mkN((ps, pos, x) => ps.setTimestamp(pos, java.sql.Timestamp.valueOf(x)))
+  implicit val Instant: Bind[Instant] =
+    mkN((ps, pos, x) => ps.setTimestamp(pos, new java.sql.Timestamp(x.toEpochMilli)))
+  implicit val Array: Bind[java.sql.Array] = mkN(_.setArray(_, _))
+
+  implicit val Offset: Bind[Offset] = mkN((ps, pos, x) => ps.setString(pos, x.value))
+  implicit val ProjectionId: Bind[ProjectionId] = mkN((ps, pos, x) => ps.setString(pos, x.value))
+
+  implicit def Optional[A](implicit setter: Bind.Used[A]): Bind[Optional[A]] =
+    mkN((ps, pos, x) => x.ifPresentOrElse(setter.set(ps, pos, _), () => ps.setNull(pos, java.sql.Types.NULL)))
+  implicit def Option[A](implicit setter: Bind.Used[A]): Bind[Option[A]] =
+    mkN((ps, pos, x) => x.map(setter.set(ps, pos, _)).getOrElse(ps.setNull(pos, java.sql.Types.NULL)))
+
+  // Java API
+  val Any: Bind[AnyRef] = mkN(_.setObject(_, _))
+
+  type Applied = PreparedStatement => Unit
 }
 
 /**
@@ -232,12 +279,11 @@ object ExecuteUpdate {
 final case class ExecuteUpdate(sql: Sql.Statement)
     extends JdbcAction
     with LazyLogging {
-  private val _setters = sql.setters.values.toList
-
+  private val binds = sql.binds.values.toList
   def execute(con: java.sql.Connection): Int = {
     val ps = con.prepareStatement(sql.jdbcStr)
     try {
-      _setters.foreach(_.set(ps))
+      binds.foreach(bind => bind(ps))
       ps.executeUpdate()
     } catch {
       case t: Throwable =>
@@ -251,13 +297,13 @@ final case class ExecuteUpdate(sql: Sql.Statement)
   /**
    * Bind an argument to a parameter by position in the SQL query.
    */
-  def bind[T](pos: Int, arg: T): ExecuteUpdate = copy(sql = sql.bind(pos, arg))
+  def bind[T: Bind.Used](pos: Int, arg: T): ExecuteUpdate = copy(sql = sql.bind(pos, arg))
 
   /**
-   * Bind an argument to a named parameter. Parameters start with a colon ':' numbers, underscore and lowercase letters
-   * are allowed characters in a named parameter.
+   * Bind an argument to a named parameter. In the SQL query, parameters start with a colon ':' numbers, underscore and
+   * lowercase letters are allowed characters in a named parameter. Provide `name` without ':' to this method.
    */
-  def bind[T](name: String, arg: T): ExecuteUpdate = copy(sql = sql.bind(name, arg))
+  def bind[T: Bind.Used](name: String, arg: T): ExecuteUpdate = copy(sql = sql.bind(name, arg))
 }
 
 /**
@@ -268,38 +314,46 @@ final case class SqlBindException(msg: String) extends Exception(msg) with NoSta
 
 object Binder {
   def create[R](sql: Sql.Statement): Binder[R] = Binder[R](sql)
-  def create[R](sql: Sql.Statement, binder: juf.Function[R, Setter]): Binder[R] = Binder[R](sql, List(binder.asScala))
-  def create[R](sql: Sql.Statement, binders: ju.List[juf.Function[R, Setter]]): Binder[R] =
-    Binder[R](sql, binders.asScala.map(_.asScala).toList)
 }
 
 /**
- * Transforms an `R` into a list of functions that creates [[Setter]]s from `R`.
+ * Binds fields of `R` to a `PreparedStatement`.
  * @tparam R
- *   the type from which Setters are mapped.
+ *   the type from which [[Bind]]s are created.
  */
-final case class Binder[R](sql: Sql.Statement, setterCreators: List[R => Setter] = List.empty[R => Setter]) {
-  private def bind(r: R => Setter): Binder[R] = {
-    copy(setterCreators = setterCreators :+ r)
+final case class Binder[R](
+    sql: Sql.Statement,
+    rowBinds: List[R => PreparedStatement => Unit] = List.empty[R => PreparedStatement => Unit]) {
+
+  private def bind[T: Bind.Used](pos: Int, field: R => T): Binder[R] = {
+    def setter(row: R): PreparedStatement => Unit = {
+      sql.bindValue(pos, field(row))
+    }
+    copy(rowBinds = rowBinds :+ setter)
   }
 
-  private def bind[T](pos: Int, field: R => T): Binder[R] = {
-    def setter(row: R) = sql.setter(pos, field(row))
-    copy(setterCreators = setterCreators :+ setter)
+  private def bind[T: Bind.Used](name: String, field: R => T): Binder[R] = {
+    require(!name.startsWith(":"), s"cannot bind to name $name, must not start with ':'.")
+    def setter(row: R): PreparedStatement => Unit = {
+      sql.bindValue(name, field(row))
+    }
+    copy(rowBinds = rowBinds :+ setter)
   }
 
-  private def bind[T](name: String, field: R => T): Binder[R] = {
-    def setter(row: R) = sql.setter(name, field(row))
-    copy(setterCreators = setterCreators :+ setter)
-  }
-
-  def bind[T](pos: Int, field: juf.Function[R, T]): Binder[R] =
+  /**
+   * Bind an argument to a parameter by position in the SQL query. The `field` function must extract a field from `R`
+   * that will be used as the argument for the parameter.
+   */
+  def bind[T: Bind.Used](pos: Int, field: juf.Function[R, T]): Binder[R] =
     bind(pos, field.asScala)
 
-  def bind[T](name: String, field: juf.Function[R, T]): Binder[R] =
+  /**
+   * Bind an argument to a named parameter. In the SQL query, parameters start with a colon ':' numbers, underscore and
+   * lowercase letters are allowed characters in a named parameter. Provide `name` without ':' to this method. The
+   * `field` function must extract a field from `R` that will be used as the argument for the parameter.
+   */
+  def bind[T: Bind.Used](name: String, field: juf.Function[R, T]): Binder[R] =
     bind(name, field.asScala)
-
-  def bind(r: juf.Function[R, Setter]): Binder[R] = bind(r.asScala)
 }
 
 /**
@@ -313,7 +367,8 @@ final case class ExecuteUpdateMany[R](sql: Sql.Statement, rows: Seq[R], binder: 
     try {
       rows.foreach { row =>
         ps.clearParameters()
-        binder.setterCreators.foreach(b => b(row).set(ps))
+
+        binder.rowBinds.foreach(set => set(row)(ps))
         ps.addBatch()
       }
       if (rows.nonEmpty) ps.executeBatch().toList.sum
