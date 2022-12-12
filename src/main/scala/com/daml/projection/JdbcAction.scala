@@ -176,6 +176,15 @@ trait Bind[-T] {
 
   /** Creates a [[Bind.Applied]] function that will set `value` at `pos` on a `PreparedStatement` argument. */
   final def apply(value: T, pos: Int): Bind.Applied = set(_, pos, value)
+
+  /**
+   * Creates a [[Bind]] from this [[Bind]] by converting `U` to `T` using `f`.
+   */
+  def contramap[U](f: U => T) = new Bind[U] {
+    override def set(ps: PreparedStatement, pos: Int, value: U) = {
+      Bind.this.set(ps, pos, f(value))
+    }
+  }
 }
 
 /**
@@ -193,17 +202,8 @@ object Bind {
     override def set(ps: PreparedStatement, pos: Int, value: T) = {
       if (value eq null) ps.setNull(pos, java.sql.Types.NULL) else f(ps, pos, value)
     }
-    // TODO SC would a specific thing from Types be better?
+    // TODO use specific java.sql.Types code https://github.com/digital-asset/daml/issues/15871
   }
-
-  implicit val Boolean: Bind[java.lang.Boolean] = mkN((ps, pos, x) => ps.setBoolean(pos, x.booleanValue()))
-  implicit val Byte: Bind[java.lang.Byte] = mkN((ps, pos, x) => ps.setByte(pos, x.toByte))
-  implicit val Short: Bind[java.lang.Short] = mkN((ps, pos, x) => ps.setShort(pos, x.toShort))
-  implicit val Int: Bind[java.lang.Integer] = mkN((ps, pos, x) => ps.setInt(pos, x.toInt))
-  implicit val Long: Bind[java.lang.Long] = mkN((ps, pos, x) => ps.setLong(pos, x.toLong))
-  implicit val Float: Bind[java.lang.Float] = mkN((ps, pos, x) => ps.setFloat(pos, x.toFloat))
-  implicit val Double: Bind[java.lang.Double] = mkN((ps, pos, x) => ps.setDouble(pos, x.toDouble))
-  implicit val BigDecimal: Bind[java.math.BigDecimal] = mkN(_.setBigDecimal(_, _))
 
   implicit val _Boolean: Bind[Boolean] = mk(_.setBoolean(_, _))
   implicit val _Byte: Bind[Byte] = mk(_.setByte(_, _))
@@ -213,6 +213,15 @@ object Bind {
   implicit val _Float: Bind[Float] = mk(_.setFloat(_, _))
   implicit val _Double: Bind[Double] = mk(_.setDouble(_, _))
   implicit val _BigDecimal: Bind[BigDecimal] = mkN((ps, pos, x) => ps.setBigDecimal(pos, x.bigDecimal))
+
+  implicit val Boolean: Bind[java.lang.Boolean] = _Boolean.contramap(_.booleanValue)
+  implicit val Byte: Bind[java.lang.Byte] = _Byte.contramap(_.toByte)
+  implicit val Short: Bind[java.lang.Short] = _Short.contramap(_.toShort)
+  implicit val Int: Bind[java.lang.Integer] = _Int.contramap(_.toInt)
+  implicit val Long: Bind[java.lang.Long] = _Long.contramap(_.toLong)
+  implicit val Float: Bind[java.lang.Float] = _Float.contramap(_.toFloat)
+  implicit val Double: Bind[java.lang.Double] = _Double.contramap(_.toDouble)
+  implicit val BigDecimal: Bind[java.math.BigDecimal] = mkN(_.setBigDecimal(_, _))
 
   implicit val String: Bind[String] = mkN(_.setString(_, _))
   implicit val Date: Bind[java.sql.Date] = mkN(_.setDate(_, _))
