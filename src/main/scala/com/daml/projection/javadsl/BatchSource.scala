@@ -136,17 +136,17 @@ object BatchSource {
   }.toJava
 
   /**
-   * Extracts an optional `Identifier` from an `E` element. It is used in [[BatchSource]] `create` methods used for testing purposes, where the [[BatchSource]] is created from in-memory data structures.
+   * Extracts an optional `Identifier` from an `E` element. It is used in [[BatchSource]] `create` methods used for
+   * testing purposes, where the [[BatchSource]] is created from in-memory data structures.
    *
-   * be instantiated with `from` methods in object [[GetContractTypeId]].
+   * The [[GetContractTypeId]] object provides from methods for common events.
    */
   @FunctionalInterface
   trait GetContractTypeId[E] {
 
-    /** Extracts an optional `Identifier` from `E`. */
+    /** Extracts an optional `Identifier` from `E` element. */
     def from(event: E): ju.Optional[J.Identifier]
 
-    /** Converts to scala DSL types. */
     def toScala: SGetContractTypeId[E] = (event: E) =>
       from(event).toScala.map(i => Identifier.fromJavaProto(i.toProto))
   }
@@ -173,22 +173,21 @@ object BatchSource {
   }
 
   /**
-   * Returns an parties from `E`.
+   * Extracts parties from `E` element. It is used in [[BatchSource]] `create` methods used for testing purposes, where
+   * the [[BatchSource]] is created from in-memory data structures.
    *
-   * It should be only used by [[BatchSource]] create methods which creates [[BatchSource]] for testing purposes. It can
-   * be instantiated with `from` methods in object [[GetParties]]
+   * The [[GetParties]] object provides from methods for common events.
    */
   @FunctionalInterface
   trait GetParties[E] {
 
-    /** Extracts an set of parties from `E`. */
+    /** Extracts a set of parties from `E` element. */
     def from(event: E): ju.Set[String]
 
-    /** Converts to scala DSL types. */
     def toScala: SGetParties[E] = (event: E) => from(event).asScala.toSet
   }
 
-  /** Methods that instantiates [[GetParties]] from common event types */
+  /** Provides methods that create [[GetParties]]s from common event types */
   object GetParties {
     implicit val `from event`: GetParties[J.Event] = fromEvent()
     def fromEvent(): GetParties[J.Event] = (event: J.Event) => {

@@ -28,6 +28,7 @@ import scala.jdk.OptionConverters._
  */
 trait BatchSource[E] {
   def src(projection: Projection[E])(implicit sys: ActorSystem): Source[Batch[E], Control]
+
   def toJava = new com.daml.projection.javadsl.BatchSource[E] {
     override def src(projection: Projection[E])(implicit
         sys: ActorSystem): akka.stream.javadsl.Source[Batch[E], com.daml.projection.javadsl.Control] =
@@ -207,22 +208,21 @@ object BatchSource {
   }
 
   /**
-   * Returns an optional `Identifier` from `E`.
+   * Extracts an optional `Identifier` from an `E` element. It is used in [[BatchSource]] `create` methods used for
+   * testing purposes, where the [[BatchSource]] is created from in-memory data structures.
    *
-   * It should be only used by [[BatchSource]] create methods which creates [[BatchSource]] for testing purposes. It can
-   * be instantiated with `from` methods in object [[GetContractTypeId]].
+   * The [[GetContractTypeId]] object provides from methods for common events.
    */
   trait GetContractTypeId[E] {
 
-    /** Extracts an optional `Identifier` from `E`. */
+    /** Extracts an optional `Identifier` from `E` element. */
     def from(event: E): Option[Identifier]
 
-    /** Converts to java DSL types. */
     def toJava: JGetContractTypeId[E] = (event: E) =>
       from(event).map(i => J.Identifier.fromProto(toJavaProto(i))).toJava
   }
 
-  /** Methods that instantiates [[GetContractTypeId]] from common event types */
+  /** Provides methods that create [[GetContractTypeId]]s from common event types */
   object GetContractTypeId {
     implicit val `from event`: GetContractTypeId[Event] = fromEvent
     def fromEvent: GetContractTypeId[Event] = {
@@ -243,22 +243,21 @@ object BatchSource {
   }
 
   /**
-   * Returns an parties from `E`.
+   * Extracts parties from `E` element. It is used in [[BatchSource]] `create` methods used for testing purposes, where
+   * the [[BatchSource]] is created from in-memory data structures.
    *
-   * It should be only used by [[BatchSource]] create methods which creates [[BatchSource]] for testing purposes. It can
-   * be instantiated with `from` methods in object [[GetParties]]
+   * The [[GetParties]] object provides from methods for common events.
    */
   trait GetParties[E] {
 
-    /** Extracts an set of parties from `E`. */
+    /** Extracts a set of parties from `E` element. */
     def from(event: E): Set[String]
 
-    /** Converts to java DSL types. */
     def toJava: JGetParties[E] = (event: E) =>
       from(event).asJava
   }
 
-  /** Methods that instantiates [[GetParties]] from common event types */
+  /** Provides methods that create [[GetParties]]s from common event types */
   object GetParties {
     implicit val `from event`: GetParties[Event] = fromEvent
     def fromEvent: GetParties[Event] = {
