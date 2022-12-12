@@ -214,8 +214,6 @@ object Bind {
   implicit val Instant: Bind[Instant] =
     mkN((ps, pos, x) => ps.setTimestamp(pos, new java.sql.Timestamp(x.toEpochMilli)))
   implicit val Array: Bind[java.sql.Array] = mkN(_.setArray(_, _))
-  implicit val Null: Bind[Null] = mkN((ps, pos, _) => ps.setNull(pos, java.sql.Types.NULL))
-  // TODO SC is Types.NULL right?
 
   implicit val Offset: Bind[Offset] = mkN((ps, pos, x) => ps.setString(pos, x.value))
   implicit val ProjectionId: Bind[ProjectionId] = mkN((ps, pos, x) => ps.setString(pos, x.value))
@@ -303,7 +301,7 @@ object Binder {
 /**
  * Binds fields of `R` to a `PreparedStatement`.
  * @tparam R
- *   the type from which Setters are mapped.
+ *   the type from which [[Bind]]s are created.
  */
 final case class Binder[R](
     sql: Sql.Statement,

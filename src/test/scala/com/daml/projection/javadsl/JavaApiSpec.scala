@@ -814,7 +814,7 @@ class JavaApiSpec
         )
         .bind(1, contract.id.contractId)
         .bind(2, "")
-        .bind(3, null)(Bind.Null)
+        .bind(3, null)(Bind.String)
         .bind(4, iou.amount)
         .bind(5, iou.currency)
     )
