@@ -28,6 +28,7 @@ import scala.jdk.OptionConverters._
  */
 trait BatchSource[E] {
   def src(projection: Projection[E])(implicit sys: ActorSystem): Source[Batch[E], Control]
+
   def toJava = new com.daml.projection.javadsl.BatchSource[E] {
     override def src(projection: Projection[E])(implicit
         sys: ActorSystem): akka.stream.javadsl.Source[Batch[E], com.daml.projection.javadsl.Control] =
@@ -206,13 +207,22 @@ object BatchSource {
     }
   }
 
+  /**
+   * Extracts an optional `Identifier` from an `E` element. It is used in [[BatchSource]] `create` methods used for
+   * testing purposes, where the [[BatchSource]] is created from in-memory data structures.
+   *
+   * The [[GetContractTypeId]] object provides `from` methods for common events.
+   */
   trait GetContractTypeId[E] {
+
+    /** Extracts an optional `Identifier` from `E` element. */
     def from(event: E): Option[Identifier]
 
     def toJava: JGetContractTypeId[E] = (event: E) =>
       from(event).map(i => J.Identifier.fromProto(toJavaProto(i))).toJava
   }
 
+  /** Provides methods that create [[GetContractTypeId]]s from common event types */
   object GetContractTypeId {
     implicit val `from event`: GetContractTypeId[Event] = fromEvent
     def fromEvent: GetContractTypeId[Event] = {
@@ -232,13 +242,22 @@ object BatchSource {
       (exercisedEvent: ExercisedEvent) => exercisedEvent.templateId
   }
 
+  /**
+   * Extracts parties from `E` element. It is used in [[BatchSource]] `create` methods used for testing purposes, where
+   * the [[BatchSource]] is created from in-memory data structures.
+   *
+   * The [[GetParties]] object provides `from` methods for common events.
+   */
   trait GetParties[E] {
+
+    /** Extracts a set of parties from `E` element. */
     def from(event: E): Set[String]
 
     def toJava: JGetParties[E] = (event: E) =>
       from(event).asJava
   }
 
+  /** Provides methods that create [[GetParties]]s from common event types */
   object GetParties {
     implicit val `from event`: GetParties[Event] = fromEvent
     def fromEvent: GetParties[Event] = {

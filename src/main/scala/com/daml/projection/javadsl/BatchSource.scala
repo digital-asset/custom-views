@@ -135,13 +135,23 @@ object BatchSource {
     }
   }.toJava
 
+  /**
+   * Extracts an optional `Identifier` from an `E` element. It is used in [[BatchSource]] `create` methods used for
+   * testing purposes, where the [[BatchSource]] is created from in-memory data structures.
+   *
+   * The [[GetContractTypeId]] object provides `from` methods for common events.
+   */
   @FunctionalInterface
   trait GetContractTypeId[E] {
+
+    /** Extracts an optional `Identifier` from `E` element. */
     def from(event: E): ju.Optional[J.Identifier]
+
     def toScala: SGetContractTypeId[E] = (event: E) =>
       from(event).toScala.map(i => Identifier.fromJavaProto(i.toProto))
   }
 
+  /** Provides methods that create [[GetContractTypeId]]s from common event types */
   object GetContractTypeId {
     implicit val `from event`: GetContractTypeId[J.Event] = fromEvent()
     def fromEvent(): GetContractTypeId[J.Event] = (event: J.Event) => {
@@ -162,12 +172,22 @@ object BatchSource {
       (exercisedEvent: J.ExercisedEvent) => Optional.of(exercisedEvent.getTemplateId)
   }
 
+  /**
+   * Extracts parties from `E` element. It is used in [[BatchSource]] `create` methods used for testing purposes, where
+   * the [[BatchSource]] is created from in-memory data structures.
+   *
+   * The [[GetParties]] object provides `from` methods for common events.
+   */
   @FunctionalInterface
   trait GetParties[E] {
+
+    /** Extracts a set of parties from `E` element. */
     def from(event: E): ju.Set[String]
+
     def toScala: SGetParties[E] = (event: E) => from(event).asScala.toSet
   }
 
+  /** Provides methods that create [[GetParties]]s from common event types */
   object GetParties {
     implicit val `from event`: GetParties[J.Event] = fromEvent()
     def fromEvent(): GetParties[J.Event] = (event: J.Event) => {
