@@ -207,14 +207,14 @@ object BatchSource {
   }
 
   /**
-   * Returns an optional [[Identifier]] from `E`.
+   * Returns an optional `Identifier` from `E`.
    *
    * It should be only used by [[BatchSource]] create methods which creates [[BatchSource]] for testing purposes. It can
    * be instantiated with `from` methods in object [[GetContractTypeId]].
    */
   trait GetContractTypeId[E] {
 
-    /** Extracts an optional [[Identifier]] from `E`. */
+    /** Extracts an optional `Identifier` from `E`. */
     def from(event: E): Option[Identifier]
 
     /** Converts to java DSL types. */
