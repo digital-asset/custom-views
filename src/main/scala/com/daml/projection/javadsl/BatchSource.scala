@@ -177,7 +177,7 @@ object BatchSource {
    * Returns an parties from `E`.
    *
    * It should be only used by [[BatchSource]] create methods which creates [[BatchSource]] for testing purposes. It can
-   * be instantiated with `from` methods in object [[GetContractTypeId]]
+   * be instantiated with `from` methods in object [[GetParties]]
    */
   @FunctionalInterface
   trait GetParties[E] {
