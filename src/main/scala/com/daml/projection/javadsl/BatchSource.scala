@@ -136,9 +136,8 @@ object BatchSource {
   }.toJava
 
   /**
-   * Returns an optional `Identifier` from `E`.
+   * Extracts an optional `Identifier` from an `E` element. It is used in [[BatchSource]] `create` methods used for testing purposes, where the [[BatchSource]] is created from in-memory data structures.
    *
-   * It should be only used by [[BatchSource]] create methods which creates [[BatchSource]] for testing purposes. It can
    * be instantiated with `from` methods in object [[GetContractTypeId]].
    */
   @FunctionalInterface
