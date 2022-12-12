@@ -196,15 +196,24 @@ object Bind {
     // TODO SC would a specific thing from Types be better?
   }
 
-  implicit val Boolean: Bind[Boolean] = mk(_.setBoolean(_, _))
-  implicit val Byte: Bind[Byte] = mk(_.setByte(_, _))
-  implicit val Short: Bind[Short] = mk(_.setShort(_, _))
-  implicit val Int: Bind[Int] = mk(_.setInt(_, _))
-  implicit val Long: Bind[Long] = mk(_.setLong(_, _))
-  implicit val Float: Bind[Float] = mk(_.setFloat(_, _))
-  implicit val Double: Bind[Double] = mk(_.setDouble(_, _))
-  implicit val `scala BigDecimal`: Bind[BigDecimal] = mkN((ps, pos, x) => ps.setBigDecimal(pos, x.bigDecimal))
+  implicit val Boolean: Bind[java.lang.Boolean] = mkN((ps, pos, x) => ps.setBoolean(pos, x.booleanValue()))
+  implicit val Byte: Bind[java.lang.Byte] = mkN((ps, pos, x) => ps.setByte(pos, x.toByte))
+  implicit val Short: Bind[java.lang.Short] = mkN((ps, pos, x) => ps.setShort(pos, x.toShort))
+  implicit val Int: Bind[java.lang.Integer] = mkN((ps, pos, x) => ps.setInt(pos, x.toInt))
+  implicit val Long: Bind[java.lang.Long] = mkN((ps, pos, x) => ps.setLong(pos, x.toLong))
+  implicit val Float: Bind[java.lang.Float] = mkN((ps, pos, x) => ps.setFloat(pos, x.toFloat))
+  implicit val Double: Bind[java.lang.Double] = mkN((ps, pos, x) => ps.setDouble(pos, x.toDouble))
   implicit val BigDecimal: Bind[java.math.BigDecimal] = mkN(_.setBigDecimal(_, _))
+
+  implicit val _Boolean: Bind[Boolean] = mk(_.setBoolean(_, _))
+  implicit val _Byte: Bind[Byte] = mk(_.setByte(_, _))
+  implicit val _Short: Bind[Short] = mk(_.setShort(_, _))
+  implicit val _Int: Bind[Int] = mk(_.setInt(_, _))
+  implicit val _Long: Bind[Long] = mk(_.setLong(_, _))
+  implicit val _Float: Bind[Float] = mk(_.setFloat(_, _))
+  implicit val _Double: Bind[Double] = mk(_.setDouble(_, _))
+  implicit val _BigDecimal: Bind[BigDecimal] = mkN((ps, pos, x) => ps.setBigDecimal(pos, x.bigDecimal))
+
   implicit val String: Bind[String] = mkN(_.setString(_, _))
   implicit val Date: Bind[java.sql.Date] = mkN(_.setDate(_, _))
   implicit val LocalDate: Bind[LocalDate] = mkN((ps, pos, x) => ps.setDate(pos, java.sql.Date.valueOf(x)))
