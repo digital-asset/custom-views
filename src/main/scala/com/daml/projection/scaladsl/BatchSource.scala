@@ -211,7 +211,7 @@ object BatchSource {
    * Extracts an optional `Identifier` from an `E` element. It is used in [[BatchSource]] `create` methods used for
    * testing purposes, where the [[BatchSource]] is created from in-memory data structures.
    *
-   * The [[GetContractTypeId]] object provides from methods for common events.
+   * The [[GetContractTypeId]] object provides `from` methods for common events.
    */
   trait GetContractTypeId[E] {
 
