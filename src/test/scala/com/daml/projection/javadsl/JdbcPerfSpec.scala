@@ -95,17 +95,14 @@ class JdbcPerfSpec
         )).asJava
       }
 
-      val batchSource =
-        BatchSource.create(
-          source.via(Batcher(nrEventsPerTx, 1.second)).asJava,
-          SBatchSource.GetContractTypeId.fromExercisedEvent.toJava,
-          SBatchSource.GetParties.fromExercisedEvent.toJava
-        )
+      val batches = source.via(Batcher(nrEventsPerTx, 3.second))
+      val batchSource = SBatchSource(batches)
+
       val start = System.currentTimeMillis
       println("Starting projection.")
 
       val control = projector.projectRows(
-        batchSource,
+        batchSource.toJava,
         projection,
         UpdateMany.create(
           Sql.binder[ExercisedEventRow](s"insert into ${projectionTable.name}(contract_id, event_id, acting_parties, witness_parties, event_offset) VALUES (?, ?, ?, ?, ?)")
@@ -113,10 +110,7 @@ class JdbcPerfSpec
             .bind(2, _.eventId)
             .bind(3, _.actingParties)
             .bind(4, _.witnessParties)
-            .bind(
-              5,
-              _.offset.map(_.value).getOrElse("")
-            ) // TODO better Option(al) support https://github.com/digital-asset/daml/issues/15705
+            .bind(5, _.offset)
         ),
         mkRow
       )
@@ -175,7 +169,7 @@ class JdbcPerfSpec
   def mkChoice = {
     Projection[ExercisedEvent](
       projectionId,
-      ProjectionFilter.parties(Set(partyIdBob))
+      ProjectionFilter.templateIdsByParty(Map(partyIdBob -> Set(templateId)))
     )
   }
   case class ExercisedEventRow(
