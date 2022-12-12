@@ -9,7 +9,6 @@ import org.flywaydb.core.Flyway
 
 import javax.sql.DataSource
 import scala.jdk.CollectionConverters._
-import scala.util.Try
 
 private object Migration extends StrictLogging {
   def projectionTableName(implicit sys: ActorSystem) =
@@ -30,16 +29,14 @@ private object Migration extends StrictLogging {
       .locations(flywayLocations: _*)
       .load()
     if (migrateOnStart) {
-      Try {
+      try {
         flyway.validate()
-      }.recover { e =>
-        logger.trace(s"Flyway validation failed: ${e.getMessage}")
-        logger.trace(s"Attempting Flyway migration.")
-        Try {
+      } catch {
+        case e: Throwable =>
+          logger.trace(s"Flyway validation failed: ${e.getMessage}")
+          logger.trace(s"Attempting Flyway migration.")
           val result = flyway.migrate()
-          logger.trace(s"Flyway migration success: ${result.schemaName}")
-        }.recover(e => logger.error(s"Flyway migration failed.", e))
-        ()
+          logger.trace(s"Flyway executed ${result.migrationsExecuted} successfully in schema: ${result.schemaName}")
       }
     }
     0

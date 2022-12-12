@@ -21,7 +21,6 @@ import com.daml.ledger.rxjava.DamlLedgerClient
 import com.daml.projection.IouContract.ContractAndEvent
 
 object TestUtil {
-  val ledgerId = LedgerId("default-ledger-id")
 
   val templateId = Identifier(
     packageId = Iou.TEMPLATE_ID.getPackageId(),
@@ -86,7 +85,6 @@ object TestUtil {
         Commands(
           party = issuer,
           applicationId = issuer,
-          ledgerId = ledgerId.value,
           commandId = java.util.UUID.randomUUID.toString,
           submissionId = java.util.UUID.randomUUID.toString,
           commands = commands
@@ -115,7 +113,6 @@ object TestUtil {
         Commands(
           party = party,
           applicationId = party,
-          ledgerId = ledgerId.value,
           commandId = java.util.UUID.randomUUID.toString,
           submissionId = java.util.UUID.randomUUID.toString,
           commands = Seq(cmd)
@@ -166,7 +163,6 @@ object TestUtil {
         Commands(
           party = issuer,
           applicationId = issuer,
-          ledgerId = ledgerId.value,
           commandId = java.util.UUID.randomUUID.toString,
           commands = commands
         )

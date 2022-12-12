@@ -87,7 +87,9 @@ object JdbcProjector {
             |  where id = :id
           """.stripMargin
 
-        CommittedAction(ExecuteUpdate.create(sql).bind(1, offset.value).bind(2, projectionId.value))
+        CommittedAction(ExecuteUpdate.create(sql)
+          .bind(1, offset.value)
+          .bind(2, projectionId.value))
       }
     }
 

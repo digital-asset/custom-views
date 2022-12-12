@@ -46,3 +46,20 @@ CREATE TABLE "java_api_tree_events"
   "witness_parties"             TEXT     NOT NULL,
   "event_offset"                TEXT     NOT NULL
 );
+
+CREATE TABLE "column_types_table"
+(
+  "contract_id"        TEXT      NULL,
+  "stakeholder"        TEXT      NOT NULL,
+  "long_column"        BIGINT    NULL,
+  "int_column"         INT       NULL,
+  "short_column"       SMALLINT  NULL,
+  "boolean_column"     BOOL      NULL,
+  "double_column"      FLOAT8    NULL,
+  "float_column"       FLOAT4    NULL,
+  "event_offset"       TEXT      NULL,
+  "projection_id"      TEXT      NULL,
+  "bigdecimal_column"  DECIMAL   NULL,
+  "date_column"        DATE      NULL,
+  "timestamp_column"   TIMESTAMPTZ NULL
+);

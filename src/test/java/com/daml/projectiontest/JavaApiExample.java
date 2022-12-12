@@ -14,6 +14,7 @@ import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 /*
@@ -50,16 +51,21 @@ public class JavaApiExample {
             var event = envelope.getEvent();
             if (event instanceof CreatedEvent) {
               Iou.Contract iou = Iou.Contract.fromCreatedEvent((CreatedEvent) event);
+              // To verify that a subclass can use the Bind of the superclass.
+              var br = new MyBigDecimal(iou.data.amount.toString());
+              // To verify that binding optional compiles.
+              Optional<String> optionalEventId = Optional.of(event.getEventId());
+
               var action =
                   ExecuteUpdate.create(
                           "insert into "
                               + projectionTable.getName()
                               + "(contract_id, event_id, amount, currency) "
                               + "values (?, ?, ?, ?)")
-                      .bind(1, event.getContractId())
-                      .bind(2, event.getEventId())
-                      .bind(3, iou.data.amount)
-                      .bind(4, iou.data.currency);
+                      .bind(1, event.getContractId(), Bind.String())
+                      .bind(2, optionalEventId, Bind.Optional(Bind.String()))
+                      .bind(3, Optional.of(br), Bind.Optional(Bind.BigDecimal()))
+                      .bind(4, iou.data.currency, Bind.String());
               return List.of(action);
             } else {
               var action =
@@ -68,7 +74,7 @@ public class JavaApiExample {
                               projectionTable.getName() +
                               " where contract_id = ?"
                       )
-                      .bind(1, event.getContractId());
+                      .bind(1, event.getContractId(), Bind.String());
               return List.of(action);
             }
           };
@@ -79,18 +85,22 @@ public class JavaApiExample {
       control.cancel();
 
       var contracts = Projection.<Iou.Contract>create(new ProjectionId("id"), ProjectionFilter.parties(Set.of(partyId)));
+
       Project<Iou.Contract, JdbcAction> fc =
           envelope -> {
             var iou = envelope.getEvent();
+            var eventId = Optional.<String>empty();
+            // To test for subclass
+            var mybd = new MyBigDecimal(iou.data.amount.toString());
             var action = ExecuteUpdate.create(
                     "insert into "
                         + projectionTable.getName()
                         + "(contract_id, event_id, amount, currency) "
                         + "values (?, ?, ?, ?)")
-                .bind(1, iou.id.contractId)
-                .bind(2, null)
-                .bind(3, iou.data.amount)
-                .bind(4, iou.data.currency);
+                .bind(1, iou.id.contractId, Bind.String())
+                .bind(2, eventId, Bind.Optional(Bind.String()))
+                .bind(3, mybd, Bind.BigDecimal())
+                .bind(4, iou.data.currency, Bind.String());
             return List.of(action);
           };
 
@@ -115,10 +125,10 @@ public class JavaApiExample {
               + projectionTable.getName()
               + "(contract_id, event_id, amount, currency) "
               + "values (:contract_id, :event_id, :amount, :currency)")
-          .bind("contract_id", iou -> iou.id.contractId)
-          .bind("event_id", iou -> null)
-          .bind("amount", iou -> iou.data.amount)
-          .bind("currency", iou -> iou.data.currency);
+          .bind("contract_id", iou -> iou.id.contractId, Bind.String())
+          .bind("event_id", iou -> null, Bind.String())
+          .bind("amount", iou -> iou.data.amount, Bind.BigDecimal())
+          .bind("currency", iou -> iou.data.currency, Bind.String());
 
       BatchRows<Iou.Contract, JdbcAction> batchRows =
           UpdateMany.create(binder);

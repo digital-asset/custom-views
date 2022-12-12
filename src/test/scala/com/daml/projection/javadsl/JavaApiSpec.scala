@@ -10,7 +10,7 @@ import akka.testkit.TestKit
 import com.daml.ledger.javaapi.data.{ Unit => _, _ }
 import com.daml.projection._
 import com.daml.quickstart.iou.iou._
-import doobie.implicits.toSqlInterpolator
+import doobie.implicits._
 import org.scalatest._
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.matchers.must._
@@ -19,6 +19,8 @@ import org.scalatest.wordspec._
 import org.scalatest.concurrent.Eventually.eventually
 
 import java.sql.SQLException
+import java.time.{ Instant, LocalDate, ZoneId }
+import java.time.temporal.ChronoUnit
 import java.util.{ List => JList }
 import scala.jdk.CollectionConverters._
 import scala.jdk.FunctionConverters._
@@ -55,7 +57,7 @@ class JavaApiSpec
       val offsets = (0 until size).map(i => Offset(f"$i%07d"))
 
       val batch = Batch.create(
-        offsets.map(o => mkEnvelope(o, mkIou(o, alice, alice), JList.of(alice))).asJava,
+        offsets.map(o => mkIouEnvelope(o, mkIou(o, alice, alice), JList.of(alice))).asJava,
         TxBoundary.create[Event](projectionId, offsets.last)
       )
       val batchSource = BatchSource.create(
@@ -75,7 +77,7 @@ class JavaApiSpec
         insertCreateEvent(projectionTable)
       )
       // projecting up to an offset, when it is reached the projection stops automatically
-      control.resourcesClosed().asScala.futureValue mustBe Done
+      control.completed().asScala.futureValue mustBe Done
       control.failed().asScala.failed.futureValue mustBe (an[NoSuchElementException])
       Then("the projected table should contain the events")
       val contractIds = runIO(sql"select contract_id from ious".query[String].to[List])
@@ -111,7 +113,7 @@ class JavaApiSpec
         insertCreateEvent(projectionTable)
       )
       // projecting up to an offset, when it is reached the projection stops automatically
-      control.resourcesClosed().asScala.futureValue mustBe Done
+      control.completed().asScala.futureValue mustBe Done
       control.failed().asScala.failed.futureValue mustBe (an[NoSuchElementException])
 
       Then("the projected table should contain the events")
@@ -185,7 +187,7 @@ class JavaApiSpec
       )
 
       // projecting up to an offset, when it is reached the projection stops automatically
-      control.resourcesClosed().asScala.futureValue mustBe Done
+      control.completed().asScala.futureValue mustBe Done
       control.failed().asScala.failed.futureValue mustBe (an[NoSuchElementException])
 
       Then("the projected table should contain the events")
@@ -230,7 +232,7 @@ class JavaApiSpec
         insertIou(projectionTable)
       )
       // projecting up to an offset, when it is reached the projection stops automatically
-      control.resourcesClosed().asScala.futureValue mustBe Done
+      control.completed().asScala.futureValue mustBe Done
 
       Then("the projected table should contain the events")
       val contractIds = runIO(sql"select contract_id from ious".query[String].to[List])
@@ -270,7 +272,7 @@ class JavaApiSpec
       )
 
       // projecting up to an offset, when it is reached the projection stops automatically
-      control.resourcesClosed().asScala.futureValue mustBe Done
+      control.completed().asScala.futureValue mustBe Done
 
       Then("the projected table should contain the events")
       val contractIds = runIO(sql"select contract_id from ious".query[String].to[List])
@@ -284,7 +286,7 @@ class JavaApiSpec
         insertOrDelete(projectionTable)
       )
       // projecting up to an offset, when it is reached the projection stops automatically
-      controlAfter.resourcesClosed().asScala.futureValue mustBe Done
+      controlAfter.completed().asScala.futureValue mustBe Done
       val contractIdsAfter = runIO(sql"select contract_id from ious".query[String].to[List])
       // one archived, one created
       contractIdsAfter.size must be(1)
@@ -322,7 +324,7 @@ class JavaApiSpec
         contractIds.size must be(1)
       }
       control.cancel().asScala.futureValue
-      control.resourcesClosed().asScala.futureValue mustBe Done
+      control.completed().asScala.futureValue mustBe Done
     }
 
     "project exercised events" in {
@@ -356,7 +358,7 @@ class JavaApiSpec
       )
 
       // projecting up to an offset, when it is reached the projection stops automatically
-      control.resourcesClosed().asScala.futureValue mustBe Done
+      control.completed().asScala.futureValue mustBe Done
       val contractIds =
         runIO(
           sql"select transfer_result_contract_id from java_api_exercised_events"
@@ -396,7 +398,7 @@ class JavaApiSpec
       )
 
       // projecting up to an offset, when it is reached the projection stops automatically
-      control.resourcesClosed().asScala.futureValue mustBe Done
+      control.completed().asScala.futureValue mustBe Done
       val contractIds = runIO(sql"select contract_id from ious".query[String].to[List])
       // one archived, one created
       contractIds.size must be(1)
@@ -414,7 +416,7 @@ class JavaApiSpec
         insertOrDelete(projectionTable)
       )
 
-      controlAfter.resourcesClosed().asScala.futureValue mustBe Done
+      controlAfter.completed().asScala.futureValue mustBe Done
 
       val contractIdsAfter = runIO(sql"select contract_id from ious".query[String].to[List])
       // one archived, one created
@@ -458,7 +460,7 @@ class JavaApiSpec
         insertTreeTransfer(projectionTable)
       )
       // projecting up to an offset, when it is reached the projection stops automatically
-      control.resourcesClosed().asScala.futureValue mustBe Done
+      control.completed().asScala.futureValue mustBe Done
 
       val transferResultContractIds =
         runIO(
@@ -501,7 +503,7 @@ class JavaApiSpec
       Then("the projection should fail")
       // Resources should automatically close on a failed projection
       control.failed().asScala.futureValue mustBe (an[SQLException])
-      control.resourcesClosed().asScala.futureValue mustBe Done
+      control.completed().asScala.futureValue mustBe Done
       // Cancelling a projection that failed should succeed
       control.cancel().asScala.futureValue mustBe Done
     }
@@ -530,7 +532,7 @@ class JavaApiSpec
       Then("the projection should fail")
       // Resources should automatically close on a failed projection
       control.failed().asScala.futureValue mustBe (an[io.grpc.StatusRuntimeException])
-      control.resourcesClosed().asScala.futureValue mustBe Done
+      control.completed().asScala.futureValue mustBe Done
       // Cancelling a projection that failed should succeed
       control.cancel().asScala.futureValue mustBe Done
     }
@@ -546,12 +548,12 @@ class JavaApiSpec
         val offset = Offset(f"$i%07d")
         if (i < size / 2) {
           Batch.create(
-            List(mkEnvelope(offset, mkIou(offset, alice, alice), JList.of(alice))).asJava,
+            List(mkIouEnvelope(offset, mkIou(offset, alice, alice), JList.of(alice))).asJava,
             TxBoundary.create[Event](projectionId, offset)
           )
         } else {
           Batch.create(
-            List(mkEnvelope(offset, mkIou(offset, alice, alice), JList.of(alice))).asJava
+            List(mkIouEnvelope(offset, mkIou(offset, alice, alice), JList.of(alice))).asJava
           )
         }
       }
@@ -572,7 +574,7 @@ class JavaApiSpec
         insertCreateEvent(projectionTable)
       )
       // projecting up to an offset, when it is reached the projection stops automatically
-      control.resourcesClosed().asScala.futureValue mustBe Done
+      control.completed().asScala.futureValue mustBe Done
       control.failed().asScala.failed.futureValue mustBe (an[NoSuchElementException])
 
       Then("the projected table should only contain events committed on the ledger")
@@ -583,6 +585,132 @@ class JavaApiSpec
       projector.getCurrentOffset(projection).toScala must be(
         batches(size / 2 - 1).boundary.map(_.offset)
       )
+    }
+
+    "project supported column datatypes" in {
+      val alice = uniqueParty("Alice")
+      val projectionId = ProjectionId(java.util.UUID.randomUUID().toString())
+
+      Given("test batches")
+      val size = 3
+      val offsets = (0 until size).map(i => Offset(f"$i%07d"))
+      case class Record(
+          contract_id: Option[String],
+          stakeholder: String,
+          long_column: Option[Long],
+          int_column: Option[Int],
+          short_column: Option[Short],
+          boolean_column: Option[Boolean],
+          double_column: Option[Double],
+          float_column: Option[Float],
+          offset: Option[Offset],
+          projection_id: Option[ProjectionId],
+          bigdecimal: Option[BigDecimal],
+          date: Option[LocalDate],
+          timestamp: Option[Instant]
+      )
+      // postgres timestamp does not support nanos ootb
+      val now = Instant.now().truncatedTo(ChronoUnit.MILLIS)
+      val zoneId = ZoneId.of("UTC")
+      def mkRecord(offset: Offset): Record = {
+        Record(
+          contract_id = Some("contract_id"),
+          stakeholder = alice,
+          long_column = Some(1L),
+          int_column = Some(1),
+          short_column = Some(2),
+          boolean_column = Some(false),
+          double_column = Some(1.3d),
+          float_column = Some(1.2f),
+          offset = Some(offset),
+          projection_id = Some(ProjectionId("id")),
+          bigdecimal = Some(BigDecimal.decimal(100d)),
+          date = Some(LocalDate.ofInstant(now, zoneId)),
+          timestamp = Some(now)
+        )
+      }
+      def insertRecord(table: ProjectionTable): Project[Record, JdbcAction] = { envelope: Envelope[Record] =>
+        import envelope._
+        val record = unwrap
+        JList.of(
+          ExecuteUpdate
+            .create(
+              s"""|insert into ${table.name} 
+              |( 
+              |  contract_id,
+              |  stakeholder,
+              |  long_column,
+              |  int_column,
+              |  short_column,
+              |  boolean_column,
+              |  double_column,
+              |  float_column,
+              |  event_offset,
+              |  projection_id,
+              |  bigdecimal_column,
+              |  date_column,
+              |  timestamp_column
+              |) 
+              |values (
+              |  :contract_id,
+              |  :stakeholder,
+              |  :long_column,
+              |  :int_column,
+              |  :short_column,
+              |  :boolean_column,
+              |  :double_column,
+              |  :float_column,
+              |  :offset,
+              |  :projection_id,
+              |  :bigdecimal_column,
+              |  :date_column,
+              |  :timestamp_column
+              |)
+              |""".stripMargin)
+            .bind("contract_id", record.contract_id)
+            .bind("stakeholder", record.stakeholder)
+            .bind("long_column", record.long_column)
+            .bind("int_column", record.int_column)
+            .bind("short_column", record.short_column)
+            .bind("boolean_column", record.boolean_column)
+            .bind("double_column", record.double_column)
+            .bind("float_column", record.float_column)
+            .bind("offset", record.offset.map(_.value))
+            .bind("projection_id", record.projection_id)
+            .bind("bigdecimal_column", record.bigdecimal)
+            .bind("date_column", record.date)
+            .bind("timestamp_column", record.timestamp)
+        )
+      }
+      val records = offsets.map(o => mkEnvelope(o, mkRecord(o)))
+      val batch = Batch.create(
+        records.asJava,
+        TxBoundary.create[Record](projectionId, offsets.last)
+      )
+      val batchSource = BatchSource.create(JList.of(batch))
+      val projector = JdbcProjector.create(ds, system)
+      val projectionTable = ProjectionTable("column_types_table")
+      val projection = Projection.create[Record](
+        projectionId,
+        ProjectionFilter.parties(Set(alice))
+      )
+      When("projecting records")
+      val control = projector.project(
+        batchSource,
+        projection.withEndOffset(offsets.last).withBatchSize(1),
+        insertRecord(projectionTable)
+      )
+      // projecting up to an offset, when it is reached the projection stops automatically
+      control.completed().asScala.futureValue mustBe Done
+      control.failed().asScala.failed.futureValue mustBe (an[NoSuchElementException])
+      Then("the projected table should contain the records")
+      import doobie.postgres.implicits._
+      val recordsDb = runIO(sql"select * from column_types_table".query[Record].to[List])
+      recordsDb.size must be(size)
+      recordsDb must contain theSameElementsAs records.map(_.event)
+
+      Then("the projection has advanced to the tx offset associated to the first event")
+      projector.getCurrentOffset(projection).toScala must be(Some(offsets.last))
     }
   }
 
@@ -603,7 +731,7 @@ class JavaApiSpec
       Set(issuer, owner).asJava
     )
 
-  def mkEnvelope(offset: Offset, iou: Iou.Contract, witnessParties: JList[String]) = {
+  def mkIouEnvelope(offset: Offset, iou: Iou.Contract, witnessParties: JList[String]) = {
     Envelope.create[Event](
       new CreatedEvent(
         witnessParties,
@@ -618,6 +746,16 @@ class JavaApiSpec
         iou.signatories,
         iou.observers
       ),
+      None.toJava,
+      None.toJava,
+      None.toJava,
+      Some(offset).toJava
+    )
+  }
+
+  def mkEnvelope[T](offset: Offset, t: T) = {
+    Envelope.create[T](
+      t,
       None.toJava,
       None.toJava,
       None.toJava,
@@ -664,12 +802,6 @@ class JavaApiSpec
     import envelope._
     val contract = unwrap
     val iou = contract.data
-    val pars = new java.util.ArrayList[Object]()
-    pars.add(contract.id.contractId)
-    pars.add("")
-    pars.add(null)
-    pars.add(iou.amount)
-    pars.add(iou.currency)
 
     JList.of(
       ExecuteUpdate
@@ -678,7 +810,7 @@ class JavaApiSpec
         )
         .bind(1, contract.id.contractId)
         .bind(2, "")
-        .bind(3, null)
+        .bind(3, null)(Bind.Null)
         .bind(4, iou.amount)
         .bind(5, iou.currency)
     )
@@ -791,5 +923,4 @@ class JavaApiSpec
         } else JList.of()
     }
   }
-
 }

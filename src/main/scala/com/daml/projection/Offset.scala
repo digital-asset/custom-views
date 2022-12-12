@@ -44,16 +44,6 @@ final case class ProjectionId(value: String) {
   def getValue(): String = value
 }
 
-final case class LedgerId(value: String) {
-
-  /**
-   * Java API
-   *
-   * Gets the value
-   */
-  def getValue(): String = value
-}
-
 /**
  * A SQL table that a [[Projection]] projects into
  */
