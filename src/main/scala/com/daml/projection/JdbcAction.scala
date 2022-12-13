@@ -174,7 +174,9 @@ trait Bind[-T] {
   /** Sets the value on the [[java.sql.PreparedStatement]] */
   def set(ps: PreparedStatement, pos: Int, value: T): Unit
 
-  /** Creates a [[Bind.Applied]] function that will set `value` at `pos` on a `PreparedStatement` argument. */
+  /**
+   * Creates a [[Bind.Applied]] function that will set `value` at `pos` on a [[java.sql.PreparedStatement]] argument.
+   */
   final def apply(value: T, pos: Int): Bind.Applied = set(_, pos, value)
 
   /**
@@ -183,6 +185,24 @@ trait Bind[-T] {
   def contramap[U](f: U => T) = new Bind[U] {
     override def set(ps: PreparedStatement, pos: Int, value: U) = {
       Bind.this.set(ps, pos, f(value))
+    }
+    override def nullSqlType: Int = Bind.this.nullSqlType
+  }
+
+  /**
+   * The [[java.sql.Types]] code that should be used when invoking `setNull` on [[java.sql.PreparedStatement]]. Default
+   * in this trait is set to java.sql.Types.NULL, override if a more specific code is needed.
+   */
+  def nullSqlType: Int = java.sql.Types.NULL
+
+  /**
+   * Return a new Bind with the [[java.sql.Types]] code modified, that should be used when invoking `setNull` on
+   * [[java.sql.PreparedStatement]].
+   */
+  def withNullSqlType(sqlType: Int): Bind[T] = new Bind[T] {
+    override def nullSqlType: Int = sqlType
+    override def set(ps: PreparedStatement, pos: Int, value: T): Unit = {
+      Bind.this.set(ps, pos, value)
     }
   }
 }
@@ -194,25 +214,29 @@ trait Bind[-T] {
 object Bind {
   type Used[-T] = Bind[_ >: T]
 
-  private def mk[T <: AnyVal](f: (PreparedStatement, Int, T) => Unit): Bind[T] = new Bind[T] {
+  private def mk[T <: AnyVal](f: (PreparedStatement, Int, T) => Unit, _nullSqlType: Int): Bind[T] = new Bind[T] {
     override def set(ps: PreparedStatement, pos: Int, value: T) = f(ps, pos, value)
+    override def nullSqlType = _nullSqlType
   }
 
-  private def mkN[T >: Null <: AnyRef](f: (PreparedStatement, Int, T) => Unit): Bind[T] = new Bind[T] {
-    override def set(ps: PreparedStatement, pos: Int, value: T) = {
-      if (value eq null) ps.setNull(pos, java.sql.Types.NULL) else f(ps, pos, value)
+  private def mkN[T >: Null <: AnyRef](f: (PreparedStatement, Int, T) => Unit, _nullSqlType: Int): Bind[T] =
+    new Bind[T] {
+      override def nullSqlType = _nullSqlType
+      override def set(ps: PreparedStatement, pos: Int, value: T) = {
+        if (value eq null) ps.setNull(pos, _nullSqlType)
+        else f(ps, pos, value)
+      }
     }
-    // TODO use specific java.sql.Types code https://github.com/digital-asset/daml/issues/15871
-  }
 
-  implicit val _Boolean: Bind[Boolean] = mk(_.setBoolean(_, _))
-  implicit val _Byte: Bind[Byte] = mk(_.setByte(_, _))
-  implicit val _Short: Bind[Short] = mk(_.setShort(_, _))
-  implicit val _Int: Bind[Int] = mk(_.setInt(_, _))
-  implicit val _Long: Bind[Long] = mk(_.setLong(_, _))
-  implicit val _Float: Bind[Float] = mk(_.setFloat(_, _))
-  implicit val _Double: Bind[Double] = mk(_.setDouble(_, _))
-  implicit val _BigDecimal: Bind[BigDecimal] = mkN((ps, pos, x) => ps.setBigDecimal(pos, x.bigDecimal))
+  implicit val _Boolean: Bind[Boolean] = mk(_.setBoolean(_, _), java.sql.Types.BOOLEAN)
+  implicit val _Byte: Bind[Byte] = mk(_.setByte(_, _), java.sql.Types.SMALLINT)
+  implicit val _Short: Bind[Short] = mk(_.setShort(_, _), java.sql.Types.SMALLINT)
+  implicit val _Int: Bind[Int] = mk(_.setInt(_, _), java.sql.Types.INTEGER)
+  implicit val _Long: Bind[Long] = mk(_.setLong(_, _), java.sql.Types.BIGINT)
+  implicit val _Float: Bind[Float] = mk(_.setFloat(_, _), java.sql.Types.FLOAT)
+  implicit val _Double: Bind[Double] = mk(_.setDouble(_, _), java.sql.Types.DOUBLE)
+  implicit val _BigDecimal: Bind[BigDecimal] =
+    mkN((ps, pos, x) => ps.setBigDecimal(pos, x.bigDecimal), java.sql.Types.DECIMAL)
 
   implicit val Boolean: Bind[java.lang.Boolean] = _Boolean.contramap(_.booleanValue)
   implicit val Byte: Bind[java.lang.Byte] = _Byte.contramap(_.toByte)
@@ -221,28 +245,32 @@ object Bind {
   implicit val Long: Bind[java.lang.Long] = _Long.contramap(_.toLong)
   implicit val Float: Bind[java.lang.Float] = _Float.contramap(_.toFloat)
   implicit val Double: Bind[java.lang.Double] = _Double.contramap(_.toDouble)
-  implicit val BigDecimal: Bind[java.math.BigDecimal] = mkN(_.setBigDecimal(_, _))
+  implicit val BigDecimal: Bind[java.math.BigDecimal] = mkN(_.setBigDecimal(_, _), java.sql.Types.DECIMAL)
 
-  implicit val String: Bind[String] = mkN(_.setString(_, _))
-  implicit val Date: Bind[java.sql.Date] = mkN(_.setDate(_, _))
-  implicit val LocalDate: Bind[LocalDate] = mkN((ps, pos, x) => ps.setDate(pos, java.sql.Date.valueOf(x)))
-  implicit val Timestamp: Bind[java.sql.Timestamp] = mkN(_.setTimestamp(_, _))
-  implicit val LocalDateTime: Bind[LocalDateTime] =
-    mkN((ps, pos, x) => ps.setTimestamp(pos, java.sql.Timestamp.valueOf(x)))
-  implicit val Instant: Bind[Instant] =
-    mkN((ps, pos, x) => ps.setTimestamp(pos, new java.sql.Timestamp(x.toEpochMilli)))
-  implicit val Array: Bind[java.sql.Array] = mkN(_.setArray(_, _))
+  implicit val String: Bind[String] = mkN(_.setString(_, _), java.sql.Types.VARCHAR)
+  implicit val Date: Bind[java.sql.Date] = mkN(_.setDate(_, _), java.sql.Types.DATE)
+  implicit val LocalDate: Bind[LocalDate] = Date.contramap(java.sql.Date.valueOf(_))
+  implicit val Timestamp: Bind[java.sql.Timestamp] = mkN(_.setTimestamp(_, _), java.sql.Types.TIMESTAMP)
+  implicit val LocalDateTime: Bind[LocalDateTime] = Timestamp.contramap(java.sql.Timestamp.valueOf(_))
 
-  implicit val Offset: Bind[Offset] = mkN((ps, pos, x) => ps.setString(pos, x.value))
-  implicit val ProjectionId: Bind[ProjectionId] = mkN((ps, pos, x) => ps.setString(pos, x.value))
+  implicit val Instant: Bind[Instant] = Timestamp.contramap(x => new java.sql.Timestamp(x.toEpochMilli))
+  implicit val Array: Bind[java.sql.Array] = mkN(_.setArray(_, _), java.sql.Types.ARRAY)
+
+  implicit val Offset: Bind[Offset] = String.contramap(_.value)
+  implicit val ProjectionId: Bind[ProjectionId] = String.contramap(_.value)
 
   implicit def Optional[A](implicit setter: Bind.Used[A]): Bind[Optional[A]] =
-    mkN((ps, pos, x) => x.ifPresentOrElse(setter.set(ps, pos, _), () => ps.setNull(pos, java.sql.Types.NULL)))
-  implicit def Option[A](implicit setter: Bind.Used[A]): Bind[Option[A]] =
-    mkN((ps, pos, x) => x.map(setter.set(ps, pos, _)).getOrElse(ps.setNull(pos, java.sql.Types.NULL)))
+    mkN(
+      (ps, pos, x) => x.ifPresentOrElse(setter.set(ps, pos, _), () => ps.setNull(pos, setter.nullSqlType)),
+      setter.nullSqlType)
+  implicit def Option[A](implicit setter: Bind.Used[A]): Bind[Option[A]] = {
+    mkN(
+      (ps, pos, x) => x.map(setter.set(ps, pos, _)).getOrElse(ps.setNull(pos, setter.nullSqlType)),
+      setter.nullSqlType)
+  }
 
   // Java API
-  val Any: Bind[AnyRef] = mkN(_.setObject(_, _))
+  val Any: Bind[AnyRef] = mkN(_.setObject(_, _), java.sql.Types.NULL)
 
   type Applied = PreparedStatement => Unit
 }
@@ -317,7 +345,7 @@ object Binder {
 }
 
 /**
- * Binds fields of `R` to a `PreparedStatement`.
+ * Binds fields of `R` to a [[java.sql.PreparedStatement]].
  * @tparam R
  *   the type from which [[Bind]]s are created.
  */
