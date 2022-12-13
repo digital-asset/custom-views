@@ -59,6 +59,15 @@ jobs:
           name: build
           command: sbt doc test
 
+  lint:
+    docker:
+    - image: cimg/openjdk:11.0.13
+    steps:
+      - checkout
+      - run:
+          name: scalafmt
+          command: sbt scalafmtCheckAll scalafmtSbtCheck
+
   release:
     executor: nix
     steps:
@@ -90,6 +99,7 @@ workflows:
   version: 2
   build:
     jobs:
+    - lint
     - build
     - release:
         requires:
