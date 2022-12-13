@@ -199,7 +199,7 @@ trait Bind[-T] {
    * Return a new Bind with the [[java.sql.Types]] code modified, that should be used when invoking `setNull` on
    * [[java.sql.PreparedStatement]].
    */
-  def withSqlType(sqlType: Int): Bind[T] = new Bind[T] {
+  def withNullSqlType(sqlType: Int): Bind[T] = new Bind[T] {
     override def nullSqlType: Int = sqlType
     override def set(ps: PreparedStatement, pos: Int, value: T): Unit = {
       Bind.this.set(ps, pos, value)
