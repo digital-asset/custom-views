@@ -33,7 +33,7 @@ private object Migration extends StrictLogging {
       .locations(flywayLocations: _*)
       .load()
     if (migrateOnStart) {
-      logger.debug(s"Migrating on start, validating flyway")
+      logger.debug(s"Migrating on start, validating flyway.")
       try {
         flyway.validate()
         logger.debug(s"Validated flyway, no need for migration.")
