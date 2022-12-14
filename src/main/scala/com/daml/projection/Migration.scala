@@ -16,8 +16,12 @@ private object Migration extends StrictLogging {
 
   def migrateIfConfigured(ds: DataSource)(implicit sys: ActorSystem): Int = {
     val migrateOnStart = sys.settings.config.getBoolean("projection.flyway.migrate-on-start")
+    logger.debug(s"flyway migrate-on-start: $migrateOnStart")
     val internalLocations = sys.settings.config.getStringList("projection.flyway.internal-locations").asScala.toList
+    logger.debug(s"flyway internal-locations: $internalLocations")
     val userProvidedLocations = sys.settings.config.getStringList("projection.flyway.locations").asScala.toList
+    logger.debug(s"flyway user provided locations: $userProvidedLocations")
+
     val flywayLocations = internalLocations ++ userProvidedLocations
     val flyway = Flyway.configure()
       .placeholders(
@@ -29,14 +33,16 @@ private object Migration extends StrictLogging {
       .locations(flywayLocations: _*)
       .load()
     if (migrateOnStart) {
+      logger.debug(s"Migrating on start, validating flyway")
       try {
         flyway.validate()
+        logger.debug(s"Validated flyway, no need for migration.")
       } catch {
         case e: Throwable =>
-          logger.trace(s"Flyway validation failed: ${e.getMessage}")
-          logger.trace(s"Attempting Flyway migration.")
+          logger.debug(s"Flyway validation failed: ${e.getMessage}")
+          logger.debug(s"Attempting Flyway migration.")
           val result = flyway.migrate()
-          logger.trace(s"Flyway executed ${result.migrationsExecuted} successfully in schema: ${result.schemaName}")
+          logger.debug(s"Flyway executed ${result.migrationsExecuted} successfully in schema: ${result.schemaName}")
       }
     }
     0
