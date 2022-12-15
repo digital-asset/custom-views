@@ -17,6 +17,7 @@ import cats.effect.IO
 import akka.grpc.GrpcClientSettings
 import cats.implicits.catsSyntaxApplicativeError
 import com.daml.ledger.api.v1.event.{ Event, ExercisedEvent }
+import com.daml.ledger.javaapi.data.CommandsSubmission
 import com.daml.ledger.rxjava.DamlLedgerClient
 import com.daml.projection.IouContract.ContractAndEvent
 
@@ -127,7 +128,6 @@ object TestUtil {
     val client = DamlLedgerClient.newBuilder(grpcSettings.serviceName, grpcSettings.defaultPort).build()
     client.connect()
     try {
-      val workflowId = "RESULT" // java.util.UUID.randomUUID.toString
       val commandId = java.util.UUID.randomUUID.toString
       val appId = issuer
       val iou =
@@ -136,13 +136,12 @@ object TestUtil {
       val update = iou.createAnd().exerciseIou_Transfer(transfer)
       val actAs = List(owner).asJava
       val readAs = List(owner, newOwner).asJava
+      val commandsSubmission =
+        CommandsSubmission.create(appId, commandId, update.commands()).withActAs(actAs).withReadAs(readAs)
       client.getCommandClient.submitAndWaitForResult(
-        workflowId,
-        appId,
-        commandId,
-        actAs,
-        readAs,
-        update).blockingGet().exerciseResult
+        commandsSubmission,
+        update
+      ).blockingGet().exerciseResult
     } finally client.close()
   }
 

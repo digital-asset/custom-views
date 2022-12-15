@@ -39,7 +39,7 @@ val AkkaVersion = "2.6.20"
 val ScalaTestVersion = "3.2.12"
 val DoobieVersion = "1.0.0-RC2"
 
-val DamlVersion = "2.5.0-snapshot.20221120.10983.0.218a6a8a"
+val DamlVersion = "2.5.0"
 
 val deps = Seq(
   "com.daml" % "bindings-java" % DamlVersion,
@@ -49,6 +49,8 @@ val deps = Seq(
   "com.typesafe.scala-logging" %% "scala-logging" % "3.9.4",
   "org.slf4j" % "slf4j-api" % "2.0.5",
   "ch.qos.logback" % "logback-classic" % "1.3.5",
+  "com.thesamet.scalapb.common-protos" %% "proto-google-common-protos-scalapb_0.11" % "2.9.6-0" % "protobuf",
+  "com.thesamet.scalapb.common-protos" %% "proto-google-common-protos-scalapb_0.11" % "2.9.6-0",
   "com.daml" % "ledger-api-proto" % DamlVersion % "protobuf-src",
   "com.zaxxer" % "HikariCP" % "5.0.1" % Test,
   "com.typesafe.akka" %% "akka-stream-testkit" % AkkaVersion % Test,
@@ -74,7 +76,7 @@ val scalacOpts =
       "-encoding",
       "utf-8",
       // Silence warnings for generated code, Emit warning and location for usages of deprecated APIs except for the generated ledger API.
-      """-Wconf:src=akka-grpc/.*:silent,cat=deprecation&origin=com\.daml\.ledger\.api\.v1\..*:silent,cat=deprecation&origin=com\.daml\.projection\..*:w""",
+      """-Wconf:src=akka-grpc/.*:s,cat=deprecation:w""",
       // Explain type errors in more detail.
       "-explaintypes",
       // Emit warning and location for usages of features that should be imported explicitly.
@@ -147,7 +149,7 @@ lazy val projection = (project in file("."))
     name := "custom-views",
     Compile / scalacOptions := scalacOpts,
     akkaGrpcGeneratedSources := Seq(AkkaGrpc.Client),
-    akkaGrpcGeneratedLanguages := Seq(AkkaGrpc.Scala, AkkaGrpc.Java),
+    akkaGrpcGeneratedLanguages := Seq(AkkaGrpc.Scala),
     akkaGrpcCodeGeneratorSettings := akkaGrpcCodeGeneratorSettings.value
       .filterNot(_ == "flat_package"),
     akkaGrpcCodeGeneratorSettings += "java_conversions",
