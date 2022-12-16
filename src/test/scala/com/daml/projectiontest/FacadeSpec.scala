@@ -23,7 +23,7 @@ import com.daml.projection.{
   UpdateMany
 }
 import com.daml.projection.scaladsl.BatchSource
-import com.daml.quickstart.iou.iou._
+import com.daml.quickstart.model.iou._
 import org.scalatest._
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.matchers.must._

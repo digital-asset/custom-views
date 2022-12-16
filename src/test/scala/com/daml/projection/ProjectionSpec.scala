@@ -10,7 +10,7 @@ import akka.stream.testkit.scaladsl.TestSink
 import akka.testkit.TestKit
 import com.daml.ledger.api.v1.event._
 import com.daml.ledger.javaapi.data.{ CreatedEvent => JCreatedEvent }
-import com.daml.quickstart.iou.iou._
+import com.daml.quickstart.model.iou._
 import doobie._
 import doobie.implicits._
 import org.scalatest._

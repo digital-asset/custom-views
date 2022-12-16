@@ -12,7 +12,7 @@ import doobie._
 import doobie.implicits._
 import cats.effect.unsafe.implicits.global
 import com.daml.ledger.api.v1.value.{ List => _, Map => _, _ }
-import com.daml.quickstart.iou.iou._
+import com.daml.quickstart.model.iou._
 import cats.effect.IO
 import akka.grpc.GrpcClientSettings
 import cats.implicits.catsSyntaxApplicativeError

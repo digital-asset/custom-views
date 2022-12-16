@@ -6,7 +6,7 @@ package com.daml.projection
 import akka.grpc.GrpcClientSettings
 import com.daml.ledger.api.v1.event._
 import com.daml.ledger.javaapi.data.{ CreatedEvent => JCreatedEvent }
-import com.daml.quickstart.iou.iou._
+import com.daml.quickstart.model.iou._
 import com.daml.projection.scaladsl.BatchSource
 
 object IouContract {

@@ -1,5 +1,6 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
+import com.daml.projection.DamlCodegen
 
 scalaVersion := "2.13.8"
 // Overrides sbt-dynver version
@@ -39,6 +40,7 @@ val AkkaVersion = "2.6.20"
 val ScalaTestVersion = "3.2.12"
 val DoobieVersion = "1.0.0-RC2"
 
+// If you change the DamlVersion, also update sdk-version in src/test/daml/daml.yaml
 val DamlVersion = "2.5.0"
 
 val deps = Seq(
@@ -158,6 +160,7 @@ lazy val projection = (project in file("."))
     PerfTest / testOptions := Seq(Tests.Filter(perfFilter)),
     libraryDependencies ++= deps,
     Test / fork := true,
+    Test / sourceGenerators += DamlCodegen.task.taskValue,
     automateHeaderSettings(PerfTest),
     inConfig(PerfTest)(JavaFormatterPlugin.toBeScopedSettings)
   )

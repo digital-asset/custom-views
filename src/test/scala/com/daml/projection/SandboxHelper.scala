@@ -59,7 +59,7 @@ trait SandboxHelper extends BeforeAndAfterAll with StrictLogging {
     ).acquire()
     val port = Await.result(resource.asFuture, timeout)
     ledgerClient = adminLedgerClient(port, config, None)
-    loadDarsFromClassPath(ledgerClient)
+    loadTestDar(ledgerClient)
     val grpcSettings = GrpcClientSettings.connectToServiceAt(host, port.value).withTls(false)
     clientSettings = grpcSettings
   }
@@ -81,9 +81,8 @@ trait SandboxHelper extends BeforeAndAfterAll with StrictLogging {
     party
   }
 
-  private def loadDarsFromClassPath(ledgerClient: LedgerClient) = {
-    val url = this.getClass.getResource("/dars")
-    val path = url.getPath()
+  private def loadTestDar(ledgerClient: LedgerClient) = {
+    val path = "target/daml"
     val files = new File(path).listFiles().toList
     Await.result(
       Future.sequence(files.map { darFile =>

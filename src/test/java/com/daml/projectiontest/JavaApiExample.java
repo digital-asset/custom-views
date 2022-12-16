@@ -9,7 +9,7 @@ import com.daml.ledger.javaapi.data.CreatedEvent;
 import com.daml.ledger.javaapi.data.Event;
 import com.daml.projection.*;
 import com.daml.projection.javadsl.*;
-import com.daml.quickstart.iou.iou.Iou;
+import com.daml.quickstart.model.iou.Iou;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 

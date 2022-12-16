@@ -56,6 +56,15 @@ jobs:
           background: true
           command: .circleci/autoforward.py
       - run:
+          name: install daml
+          command: |
+            export DAML_VERSION=$(yq eval '.sdk-version' src/test/daml/daml.yaml)
+            curl -sSL https://get.daml.com/ | sh -s $DAML_VERSION
+      - run:
+          name: Setup Environment Variables
+          command: |
+            echo 'export PATH=/home/circleci/.daml/bin:"$PATH"' >> "$BASH_ENV"
+      - run:
           name: build
           command: sbt doc test
 
