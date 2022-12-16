@@ -14,7 +14,7 @@ executors:
       NIX_PROFILES: "/nix/var/nix/profiles/default /home/circleci/.nix-profile"
       NIX_PATH: "/home/circleci/.nix-defexpr/channels"
       NIX_SSL_CERT_FILE: "/etc/ssl/certs/ca-certificates.crt"
-      PATH: "/home/circleci/.nix-profile/bin:/home/circleci/bin:/home/circleci/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/home/circleci/.daml/bin"
+      PATH: "/home/circleci/.nix-profile/bin:/home/circleci/bin:/home/circleci/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
 commands:
   setup_nix:
