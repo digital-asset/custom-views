@@ -14,7 +14,7 @@ executors:
       NIX_PROFILES: "/nix/var/nix/profiles/default /home/circleci/.nix-profile"
       NIX_PATH: "/home/circleci/.nix-defexpr/channels"
       NIX_SSL_CERT_FILE: "/etc/ssl/certs/ca-certificates.crt"
-      PATH: "/home/circleci/.nix-profile/bin:/home/circleci/bin:/home/circleci/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+      PATH: "/home/circleci/.nix-profile/bin:/home/circleci/bin:/home/circleci/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/home/circleci/.daml/bin"
 
 commands:
   setup_nix:
@@ -55,6 +55,15 @@ jobs:
           name: Testcontainers tunnel
           background: true
           command: .circleci/autoforward.py
+      - run:
+          name: install daml
+          command: |
+            export DAML_VERSION=$(yq eval '.sdk-version' src/test/daml/daml.yaml)
+            curl -sSL https://get.daml.com/ | sh -s $DAML_VERSION
+      - run:
+          name: Setup Environment Variables
+          command: |
+            echo 'export PATH=/home/circleci/.daml/bin:"$PATH"' >> "$BASH_ENV"
       - run:
           name: build
           command: sbt doc test

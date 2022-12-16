@@ -1,0 +1,9 @@
+sdk-version: 2.5.0
+name: quickstart
+source: .
+init-script: Main:initialize
+version: 0.0.1
+dependencies:
+  - daml-prim
+  - daml-stdlib
+  - daml-script

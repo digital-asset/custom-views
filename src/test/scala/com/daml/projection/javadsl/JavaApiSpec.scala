@@ -9,7 +9,7 @@ import akka.grpc.GrpcClientSettings
 import akka.testkit.TestKit
 import com.daml.ledger.javaapi.data.{ Unit => _, _ }
 import com.daml.projection._
-import com.daml.quickstart.iou.iou._
+import com.daml.quickstart.model.iou._
 import doobie.implicits._
 import org.scalatest._
 import org.scalatest.concurrent.ScalaFutures
