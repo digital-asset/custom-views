@@ -3,7 +3,7 @@
 Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 
-# Projection
+# Custom Views
 
 A Java / Scala projection library for projecting Ledger events to SQL databases.
 (Currently only PostgreSQL is supported.)
@@ -17,7 +17,7 @@ ensuring that isolation and atomicity of changes perceived by database users is 
 The reference documentation is available [at docs.daml.com](https://docs.daml.com/2.5.0/app-dev/custom-views/index.html).
 
 ## Examples
-A quickstart example using the projection library can be found [here](https://github.com/digital-asset/ex-custom-views-spring-boot).
+A quickstart example using the Custom Views library can be found [here](https://github.com/digital-asset/ex-custom-views-spring-boot).
 
 ## Releasing
 
