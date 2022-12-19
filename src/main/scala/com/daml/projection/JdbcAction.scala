@@ -10,6 +10,7 @@ import java.time.{ Instant, LocalDate, LocalDateTime }
 import java.util.Optional
 import scala.jdk.CollectionConverters._
 import scala.util.control.NoStackTrace
+import scala.util.chaining._
 import scala.util.matching.Regex
 import scala.jdk.FunctionConverters._
 import java.util.{ function => juf }
@@ -312,7 +313,10 @@ final case class ExecuteUpdate(sql: Sql.Statement)
     val ps = con.prepareStatement(sql.jdbcStr)
     try {
       binds.foreach(bind => bind(ps))
-      ps.executeUpdate()
+      logger.trace(s"Start executeUpdate: ${sql.jdbcStr}")
+      ps.executeUpdate().tap { rows =>
+        logger.trace(s"Success executeUpdate: $rows effected")
+      }
     } catch {
       case t: Throwable =>
         logger.debug(s"""Failed ExecuteUpdate, sql: '$sql'""", t)
@@ -399,8 +403,12 @@ final case class ExecuteUpdateMany[R](sql: Sql.Statement, rows: Seq[R], binder: 
         binder.rowBinds.foreach(set => set(row)(ps))
         ps.addBatch()
       }
-      if (rows.nonEmpty) ps.executeBatch().toList.sum
-      else 0
+      if (rows.nonEmpty) {
+        logger.trace(s"Start executeBatch")
+        ps.executeBatch().toList.sum.tap { rows =>
+          logger.trace(s"Success executeBatch: $rows effected")
+        }
+      } else 0
     } catch {
       case t: Throwable =>
         logger.error(s"""Failed ExecuteUpdateMany.""", t)

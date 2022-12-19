@@ -42,13 +42,14 @@ private object Migration extends StrictLogging {
       } else {
         logger.debug(s"Flyway validation failed: ${validationResult.getAllErrorMessages}")
         logger.debug(s"Attempting Flyway migration.")
-        val result = try {
-          flyway.migrate()
-        } catch {
-          case e: FlywayException =>
-            logger.error("Flyway migration failed", e)
-            throw e
-        }
+        val result =
+          try {
+            flyway.migrate()
+          } catch {
+            case e: FlywayException =>
+              logger.error("Flyway migration failed", e)
+              throw e
+          }
         if (!result.warnings.isEmpty) {
           logger.warn(s"Flyway warnings: ${result.warnings.asScala.mkString(", ")}")
         }
