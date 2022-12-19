@@ -12,6 +12,7 @@ import com.daml.ledger.javaapi.{ data => J }
 import com.daml.projection.Projection.Advance
 import com.daml.projection.scaladsl.{ Projector => SProjector, ProjectorResource }
 import com.typesafe.scalalogging.StrictLogging
+import nl.grons.metrics4.scala.DefaultInstrumented
 
 import java.sql.SQLException
 import javax.sql.DataSource
@@ -54,7 +55,8 @@ trait BatchRows[R, A] extends java.io.Serializable {
 /**
  * Creates a [[javadsl.Projector]] or [[scaladsl.Projector]] that executes [[JdbcAction]]s.
  */
-object JdbcProjector {
+object JdbcProjector extends DefaultInstrumented {
+  private val actionsMeter = metrics.meter("executedActions")
 
   def apply(
       ds: DataSource
@@ -208,6 +210,7 @@ object JdbcProjector {
       val promise = Promise[Done]()
       val f = promise.future
       Flow[JdbcAction].map { a =>
+        actionsMeter.mark()
         a.execute(con)
       }.alsoTo(Sink.onComplete {
         case _ =>

@@ -39,6 +39,7 @@ pomExtra := <developers>
 val AkkaVersion = "2.6.20"
 val ScalaTestVersion = "3.2.12"
 val DoobieVersion = "1.0.0-RC2"
+val Metrics4ScalaVersion = "4.2.9"
 
 // If you change the DamlVersion, also update sdk-version in src/test/daml/daml.yaml
 val DamlVersion = "2.5.0"
@@ -56,6 +57,7 @@ val deps = Seq(
   "com.daml" % "ledger-api-proto" % DamlVersion % "protobuf-src",
   "com.zaxxer" % "HikariCP" % "5.0.1" % Test,
   "com.typesafe.akka" %% "akka-stream-testkit" % AkkaVersion % Test,
+  "nl.grons" %% "metrics4-scala" % Metrics4ScalaVersion,
   "org.scalatest" %% "scalatest-core" % ScalaTestVersion % Test,
   "org.scalatest" %% "scalatest-matchers-core" % ScalaTestVersion % Test,
   "org.scalatest" %% "scalatest-mustmatchers" % ScalaTestVersion % Test,
