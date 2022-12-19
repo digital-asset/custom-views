@@ -18,10 +18,12 @@ import com.daml.ledger.api.v1.value.Identifier.toJavaProto
 import com.daml.ledger.javaapi.{ data => J }
 import com.daml.projection.{ javadsl, Batch, Batcher, ConsumerRecord, Envelope, Projection }
 import com.daml.projection.javadsl.BatchSource.{ GetContractTypeId => JGetContractTypeId, GetParties => JGetParties }
+import com.typesafe.scalalogging.StrictLogging
 
 import scala.concurrent.{ Future, Promise }
 import scala.jdk.CollectionConverters._
 import scala.jdk.OptionConverters._
+import scala.util.chaining._
 
 /**
  * A Source of [[Batch]]s.
@@ -36,7 +38,7 @@ trait BatchSource[E] {
   }
 }
 
-object BatchSource {
+object BatchSource extends StrictLogging {
 
   // TODO add a create method to create a source from protobuf files https://github.com/digital-asset/daml/issues/15659
   def apply[E: GetContractTypeId: GetParties](batches: Seq[Batch[E]]): BatchSource[E] =
@@ -80,11 +82,14 @@ object BatchSource {
   }
 
   // TODO https://github.com/digital-asset/daml/issues/15658 filter using transactionFilter
-  private def filterEnvelope[E: GetContractTypeId: GetParties](projection: Projection[E])(e: Envelope[E]) =
+  private def filterEnvelope[E: GetContractTypeId: GetParties](projection: Projection[E])(e: Envelope[E]) = (
     projection.predicate(e) &&
       projection.offset.forall(o => e.offset.forall(_.value >= o.value)) &&
       projection.endOffset.forall(o => e.offset.forall(_.value <= o.value)) &&
       filterEvent(projection.transactionFilter)(e.event)
+  ).tap { keep =>
+    if (!keep) logger.trace(s"Skipping envelope $e")
+  }
 
   private def filterBatch[E: GetContractTypeId: GetParties](projection: Projection[E])(b: Batch[E]): Batch[E] =
     b.copy(envelopes = b.envelopes.filter(filterEnvelope(projection)))
