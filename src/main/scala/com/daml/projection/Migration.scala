@@ -6,6 +6,7 @@ package com.daml.projection
 import akka.actor.ActorSystem
 import com.typesafe.scalalogging.StrictLogging
 import org.flywaydb.core.Flyway
+import org.flywaydb.core.api.FlywayException
 
 import javax.sql.DataSource
 import scala.jdk.CollectionConverters._
@@ -20,7 +21,7 @@ private object Migration extends StrictLogging {
     val internalLocations = sys.settings.config.getStringList("projection.flyway.internal-locations").asScala.toList
     logger.debug(s"flyway internal-locations: $internalLocations")
     val userProvidedLocations = sys.settings.config.getStringList("projection.flyway.locations").asScala.toList
-    logger.debug(s"flyway user provided locations: $userProvidedLocations")
+    logger.debug(s"flyway user provided locations: ${userProvidedLocations.mkString(", ")}")
 
     val flywayLocations = internalLocations ++ userProvidedLocations
     val flyway = Flyway.configure()
@@ -34,15 +35,29 @@ private object Migration extends StrictLogging {
       .load()
     if (migrateOnStart) {
       logger.debug(s"Migrating on start, validating flyway.")
-      try {
-        flyway.validate()
+      val validationResult = flyway.validateWithResult()
+
+      if (validationResult.validationSuccessful) {
         logger.debug(s"Validated flyway, no need for migration.")
-      } catch {
-        case e: Throwable =>
-          logger.debug(s"Flyway validation failed: ${e.getMessage}")
-          logger.debug(s"Attempting Flyway migration.")
-          val result = flyway.migrate()
+      } else {
+        logger.debug(s"Flyway validation failed: ${validationResult.getAllErrorMessages}")
+        logger.debug(s"Attempting Flyway migration.")
+        val result =
+          try {
+            flyway.migrate()
+          } catch {
+            case e: FlywayException =>
+              logger.error("Flyway migration failed", e)
+              throw e
+          }
+        if (!result.warnings.isEmpty) {
+          logger.warn(s"Flyway warnings: ${result.warnings.asScala.mkString(", ")}")
+        }
+        if (result.success) {
           logger.debug(s"Flyway executed ${result.migrationsExecuted} successfully in schema: ${result.schemaName}")
+        } else {
+          logger.warn(s"Flyway migration failed: ${result.warnings.asScala.mkString(", ")}")
+        }
       }
     }
     0

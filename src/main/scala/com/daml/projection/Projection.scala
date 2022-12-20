@@ -146,7 +146,7 @@ object Projection extends {
 
   /**
    * Projects the projection using a [[Project]] function that creates actions from the event. Events of type `E` are
-   * rescaladsl.BatchSource]]. Actions are executed by the supplied [[scaladsl.Projector]].
+   * [[scaladsl.BatchSource]]. Actions are executed by the supplied [[scaladsl.Projector]].
    */
   def project[E, A: Projector](
       batchSource: scaladsl.BatchSource[E],
