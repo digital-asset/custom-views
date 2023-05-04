@@ -468,9 +468,9 @@ class JavaApiSpec
         )
       Then("the projected table should contain the events")
       // create + exercise
-      transferResultContractIds.size must be(4)
+      transferResultContractIds.size must be(6)
       transferResultContractIds must contain(firstResultContractId)
-      transferResultContractIds.filter(_ == "").size must be(2)
+      transferResultContractIds.filter(_ == "").size must be(4)
 
       Then("the projection has advanced to the tx offset associated to the archived event")
       projector.getCurrentOffset(projection).toScala must be(

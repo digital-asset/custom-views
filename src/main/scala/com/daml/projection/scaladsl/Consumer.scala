@@ -321,8 +321,7 @@ private[projection] object Consumer extends StrictLogging {
               Instant.ofEpochSecond(timestamp.seconds, timestamp.nanos.toLong))
           val workflowId = txTree.workflowId
           val newProjectionOffset = Offset(txTree.offset)
-          val envelopes = txTree.rootEventIds.flatMap { eventId =>
-            val event = txTree.eventsById(eventId)
+          val envelopes = txTree.eventsById.valuesIterator.flatMap { event =>
             val envelope =
               Envelope[TreeEvent](
                 event,
@@ -332,7 +331,7 @@ private[projection] object Consumer extends StrictLogging {
                 Some(newProjectionOffset)
               )
             if (predicate(envelope)) Some(envelope) else None
-          }
+          }.toList
           if (envelopes.nonEmpty) {
             envelopes :+ TxBoundary[TreeEvent](projectionId, newProjectionOffset)
           } else {
